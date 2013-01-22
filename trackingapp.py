@@ -3,6 +3,7 @@ import datetime
 import urllib
 import wsgiref.handlers
 import logging
+import re
 
 from google.appengine.ext import db
 from google.appengine.api import users
@@ -40,6 +41,8 @@ class Event(db.Model):
   primaryKey = db.IntegerProperty()
   clubKey = db.IntegerProperty()
   date = db.StringProperty()
+  clubName = db.StringProperty()
+  location = db.StringProperty()
   creationDate = db.DateTimeProperty(auto_now_add=True)
 
 
@@ -55,7 +58,7 @@ def club_key(person_name=None):
 def personEventStatus_key(person_name=None):
 	return db.Key.from_path('person', 'personEventStatus' or 'default_person')  
   
-def Event_key(person_name=None):
+def event_key(person_name=None):
 	return db.Key.from_path('person', 'event' or 'default_person')  
   
 class registerPerson(webapp.RequestHandler):
@@ -68,6 +71,10 @@ class registerPerson(webapp.RequestHandler):
 				error = 'Looks like you missed something'
 			elif error == '2':
 				error = 'Student ID needs to be a number'
+			elif error == '3':
+				error = 'Your email looks invalid. Have you tried to use your monash one?'
+			elif error == '4':
+				error = 'Student ID already found'
 			template_values = {
 				'error': error
 			}
@@ -120,15 +127,18 @@ class registerPerson_Submit(webapp.RequestHandler):
 	
 		
 	if email:
-		person.email = email
+		if re.match(r"[^@]+@[^@]+\.[^@]+", email):
+			person.email = email
+		else:
+			error = '3'
 	else:
 		error = '1'
 		
 	if phoneNumber:
 		person.phoneNumber = phoneNumber
-	else:
-		error = '1'
-		
+	
+	
+	
 	if error == '':
 		error = "0"
 		person.put();
@@ -385,7 +395,312 @@ class selectClubToView(webapp.RequestHandler):
 			
 			path = os.path.join(os.path.dirname(__file__), 'clubMemberSelector.html')
 			self.response.out.write(template.render(path, template_values))			
+
+class addEvent(webapp.RequestHandler):
+	def get(self):
+	
+			
+	
+			error = self.request.get('error')
+			if error == '0':
+				error = 'Success!'
+			elif error == '1':
+				error = 'Looks like you missed something'
+			
+			clubsMasterString = ''
+			
+			clubs = db.GqlQuery("SELECT * "
+                            "FROM Club "
+                            "WHERE ANCESTOR IS :1 ",
+                            club_key('default_club'))
 		
+			for Club in clubs:
+				clubsMasterString = clubsMasterString + '<option value="' + str(Club.primaryKey) + '">' + Club.name + '</option>'
+		
+			template_values = {
+				'error': error,
+				'clubs': clubsMasterString
+			}
+
+			path = os.path.join(os.path.dirname(__file__), 'addEvent.html')
+			self.response.out.write(template.render(path, template_values))	
+		
+class addEvent_Submit(webapp.RequestHandler):
+  def post(self):
+    # We set the same parent key on the 'Greeting' to ensure each greeting is in
+    # the same entity group. Queries across the single entity group will be
+    # consistent. However, the write rate to a single entity group should
+    # be limited to ~1/second.
+	
+	eventName = self.request.get('eventname')
+	date = self.request.get('date')
+	location = self.request.get('location')
+
+	clubPrimaryKey = self.request.get('clubinput')
+
+	newEvent = Event(parent=event_key('defaultkey'))
+
+	error = '';
+	if eventName:
+		newEvent.name = eventName
+	else:
+		error = '1'
+	
+	if date:
+		newEvent.date = date
+	else:
+		error = '1'
+	
+	if location:
+		newEvent.location = location
+	else:
+		error = '1'
+		
+	clubs = db.GqlQuery("SELECT * "
+                            "FROM Club "
+                            "WHERE ANCESTOR IS :1 ",
+                            club_key('default_club'))
+							
+	logging.info('Event')
+	logging.info(clubPrimaryKey)
+	intClubPrimaryKey = int(clubPrimaryKey)
+	for Club in clubs:
+		if Club.primaryKey == intClubPrimaryKey:
+			newEvent.clubName = Club.name
+			logging.info('Matched name')
+
+	
+	newEvent.clubKey = int(clubPrimaryKey)
+
+	
+	if error == '':
+		error = "0"
+		
+		highestNumber = 0
+		
+		events = db.GqlQuery("SELECT * "
+                            "FROM Event "
+                            "WHERE ANCESTOR IS :1 ",
+                            event_key('default_club'))
+		
+		for event in events:
+			if highestNumber < event.primaryKey:
+				highestNumber = event.primaryKey
+		
+		highestNumber = highestNumber + 1
+		
+		newEvent.primaryKey = highestNumber
+		
+		newEvent.put();
+		
+		
+	
+	self.redirect('/addEvent?error=%s' % error)	
+
+class viewEvents(webapp.RequestHandler):
+	def get(self):
+		masterString = ''	
+
+		events = db.GqlQuery("SELECT * "
+                            "FROM Event "
+                            "WHERE ANCESTOR IS :1 ",
+                            event_key('default_event'))
+		
+		for event in events:
+			eventline = ''
+			if event.name:
+				eventline = event.name
+				
+			if event.location:
+				eventline = eventline + '\t' + event.location
+				
+			if event.clubName:
+				eventline = eventline + '\t' + event.clubName
+				
+			if event.date:
+				eventline = eventline + '\t' + event.date
+				
+			masterString = eventline  + '<br><br>' + masterString	
+
+		
+		template_values = {
+				'events': masterString
+		}
+			
+		path = os.path.join(os.path.dirname(__file__), 'viewEvents.html')
+		self.response.out.write(template.render(path, template_values))	
+	
+	
+class addMembersToEvent(webapp.RequestHandler):
+
+    def get(self):
+			error = self.request.get('error')
+			if error == '0':
+				error = 'Success!'
+			elif error == '1':
+				error = 'Looks like you missed something'
+			elif error == '2':
+				error = 'Student ID needs to be a number'
+			elif error == '3':
+				error = 'Student ID match not found'
+			
+			eventsMasterString = ''
+			
+			events = db.GqlQuery("SELECT * "
+                            "FROM Event "
+                            "WHERE ANCESTOR IS :1 ",
+                            event_key('default_club'))
+		
+			for event in events:
+			
+				eventline = ''
+			
+				if event.name:
+					eventline = event.name
+				
+				if event.date:
+					eventline = eventline + ' - ' + event.date
+				
+				if event.clubName:
+					eventline = eventline + ' - ' + event.clubName			
+			
+				eventsMasterString = eventsMasterString + '<option value="' + str(event.primaryKey) + '">' + eventline +'</option>'
+		
+			template_values = {
+				'error': error,
+				'events': eventsMasterString
+			}
+			
+			
+			path = os.path.join(os.path.dirname(__file__), 'addToEvent.html')
+			self.response.out.write(template.render(path, template_values))			
+	
+class addMembersToEvent_Submit(webapp.RequestHandler):
+  def post(self):
+    # We set the same parent key on the 'Greeting' to ensure each greeting is in
+    # the same entity group. Queries across the single entity group will be
+    # consistent. However, the write rate to a single entity group should
+    # be limited to ~1/second.
+	error = ''
+	try:
+		studentID = int(self.request.get('studentid'))
+	except:
+		error = '2'
+		
+	if error == '':
+		try:
+			if studentID:
+				persons = db.GqlQuery("SELECT * "
+								"FROM Person "
+								"WHERE studentID = :1",
+								studentID)
+				match = False
+				for Person in persons:
+					match = True
+				if match:
+					studentID = studentID
+				else:
+					error = '3'
+			else:
+				error = '1'
+		except:
+			error = '4'
+	
+	if error == '':
+		clubPrimaryKey = self.request.get('eventinput')
+		
+		personEventStatus = PersonEventStatus(parent=personEventStatus_key('defaultkey'))
+		
+		personEventStatus.studentID = studentID
+		personEventStatus.eventKey = int(clubPrimaryKey)
+		
+		personEventStatus.put();
+		logging.info('successfully put')
+
+		error = '0'
+		
+	
+	self.redirect('/addMembersToEvent?error=%s' % error)	
+	
+class viewEventMembers(webapp.RequestHandler):
+	def post(self):
+
+		masterString = ''	
+		eventKey = int(self.request.get('eventinput'))
+
+		#Searchs for the club (for name/existance)
+		
+		eventMemberships = db.GqlQuery("SELECT * FROM PersonEventStatus WHERE eventKey = :1",
+											int(eventKey))
+		
+		masterString = ''	
+		template_values = {
+		}	
+		logging.info(eventKey)
+		
+		for membership in eventMemberships:
+			logging.info('person2')
+
+			people = db.GqlQuery("SELECT * FROM Person WHERE studentID = :1",
+											membership.studentID)
+			for person in people:
+				logging.info('person')
+				masterString = masterString + str(person.studentID) + '<br>' + person.firstName + ' ' + person.lastName + '<br><br>'
+	
+	
+		if masterString == '':
+			masterString = 'No attendees found.'
+			
+		events = db.GqlQuery("SELECT * "
+                            "FROM Event ")
+							
+		eventName = ''
+		for event in events:
+			if event.primaryKey == eventKey:
+				 eventName = event.name
+			
+		template_values = {
+			'nameOfEvent': eventName,
+			'table'		: masterString
+		}
+
+		path = os.path.join(os.path.dirname(__file__), 'viewEventAttendees.html')
+		self.response.out.write(template.render(path, template_values))	
+	def get(self):
+		self.response.out.write('Error, attempted to get. Go back and try again.')
+
+class selectEventToView(webapp.RequestHandler):
+
+    def get(self):
+			eventsMasterString = ''
+			
+			events = db.GqlQuery("SELECT * "
+                            "FROM Event "
+                            "WHERE ANCESTOR IS :1 ",
+                            event_key('default_key'))
+			
+			for event in events:
+				eventline = ''
+			
+				if event.name:
+					eventline = event.name
+				
+				if event.date:
+					eventline = eventline + ' - ' + event.date
+				
+				if event.clubName:
+					eventline = eventline + ' - ' + event.clubName			
+			
+				eventsMasterString = eventsMasterString + '<option value="' + str(event.primaryKey) + '">' + eventline +'</option>'
+		
+		
+			template_values = {
+				'events': eventsMasterString
+			}
+			
+			path = os.path.join(os.path.dirname(__file__), 'eventSelector.html')
+			self.response.out.write(template.render(path, template_values))		
+	
 application = webapp.WSGIApplication(
                                      [('/',index),
 									  ('/register', registerPerson),
@@ -396,15 +711,15 @@ application = webapp.WSGIApplication(
 									  ('/addMembers_Submit', addMembers_Submit),
 									  ('/viewClubs', viewClubs),
 									  ('/clubmembers',viewClubMembers),
-									  ('/selectClubToView',selectClubToView)
+									  ('/selectClubToView',selectClubToView),
 									  
-									  #('/addEvent', addEvent),
-									  #('/addEventSubmit', addEvent_Submit),
-									  #'/addMembersToEvent', addMembersToEvent),
-									  #('/addMembersToEvent_Submit', addMembersToEvent_Submit),
-									  #('/viewEvents', viewEvents),
-									  #('/eventAttendees',viewEventMembers),
-									  #('/selectEventToView',selectEventToView)
+									  ('/addEvent', addEvent),
+									  ('/addEventSubmit', addEvent_Submit),
+									  ('/addMembersToEvent', addMembersToEvent),
+									  ('/addMembersToEvent_Submit', addMembersToEvent_Submit),
+									  ('/viewEvents', viewEvents),
+									  ('/eventAttendees',viewEventMembers),
+									  ('/selectEventToView',selectEventToView)
 									  ],
                                      debug=True)
 

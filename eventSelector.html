@@ -35,54 +35,34 @@
       <div class="navbar-inner">
         <div class="container">
           <a class="brand" href="/">
-            Monash Club Registration
+              Monash Club Registration
           </a>
-          
+          <ul class="nav">
+          </ul>
         </div>
       </div>
     </div>
-	<form action="/addEventSubmit?%s" method="post">
-
     <div class="container">
       <div>
         <h1>
-          Add Event
+          Select Event
         </h1>
-        <p>
-          &nbsp;
-        </p>
       </div>
-	  {% if error %}
-        <p>
-			<font color="red">
-				{{ error }}
-			</font>
-		</p>
-      {% endif %}
+	  <form action="/eventAttendees" method="post">
       <div class="control-group">
-		<label for="eventname">
-          Event Name
+        <label for="selectinput1">
+          Event
         </label>
-        <input id="eventname" name="eventname" type="">
-		<label for="date">
-          Date
-        </label>
-		<input id="date" name="date" type="">
-		<label for="date">
-          Location
-        </label>
-		<input id="location" name="location" type="">
-		<label for="selectinput1">
-          Club
-        </label>
-        <select name="clubinput" id="clubinput">
-			{{ clubs }}
+        <select name="eventinput" id="eventinput">
+			{{ events }}
         </select>
       </div>
-	  <div><input type="submit" value="Submit"></div>
-    </div>
-	</form>
+	  <div class="control-group">
 
+      </div>
+	  <div><input type="submit" value="Submit"></div>
+	  </form>
+    </div>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js">
     </script>
     <script src="assets/js/bootstrap.js">
