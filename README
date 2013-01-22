@@ -1,0 +1,9 @@
+Monash Club Tracker
+
+A small Google App Engine app for tracking clubs and members at Monash.
+
+Things to work on:
+-Events
+-Passwords/Sessions
+
+My apologies for the disgusting code, this is my first Python app and it's a fair jump from my native Obj-C. Note their might be people working on this app in both the science and the wired facultys, so if you post someone about it on either facebook group, some people might miss it.
