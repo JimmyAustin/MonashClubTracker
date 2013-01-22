@@ -1,4 +1,4 @@
-application: monashclubtracking
+application: monashclubtracker
 version: 1
 runtime: python
 api_version: 1
@@ -12,10 +12,7 @@ handlers:
   static_dir: assets/css
   
 - url: /assets/img
-  static_dir: assets/img  
-
-- url: /*
-  static_dir: /
+  static_dir: assets/img
   
 - url: /.*
   script: trackingapp.py
