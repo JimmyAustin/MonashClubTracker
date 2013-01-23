@@ -35,6 +35,8 @@ class Club(db.Model):
 class PersonEventStatus(db.Model):
   studentID = db.IntegerProperty()  
   eventKey = db.IntegerProperty() 
+  creationDate = db.DateTimeProperty(auto_now_add=True)
+
   
 class Event(db.Model):
   name = db.StringProperty()  
@@ -645,7 +647,22 @@ class viewEventMembers(webapp.RequestHandler):
 											membership.studentID)
 			for person in people:
 				logging.info('person')
-				masterString = masterString + str(person.studentID) + '<br>' + person.firstName + ' ' + person.lastName + '<br><br>'
+				
+				personLine = ''
+			
+				if person.firstName:
+					personLine = person.firstName
+				
+				if person.lastName:
+					personLine = personLine + ' ' + person.lastName
+				
+				if person.studentID:
+					personLine = personLine + '<br>' + str(person.studentID)
+					
+				if membership.creationDate:
+					personLine = personLine + '<br> Created: ' + str(membership.creationDate)
+					
+				masterString = masterString + '<br><br>' + personLine
 	
 	
 		if masterString == '':
