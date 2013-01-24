@@ -21,7 +21,21 @@ class Person(db.Model):
   authcate = db.StringProperty()
   studentID = db.IntegerProperty()
   email = db.StringProperty()
+  campus = db.IntegerProperty()
   phoneNumber = db.StringProperty()
+  
+  #Campus Numbers
+  # 1: Clayton
+  # 2: Caulfield
+  # 3: Peninsula
+  # 4: Parkville
+  # 5: Gippsland
+  # 6: Berwick
+  # 7: India
+  # 8: South Africa
+  # 9: Italy
+  # 10: Sunway, Malaysia
+  # 11: China
   
 class PersonClubStatus(db.Model):
   studentID = db.IntegerProperty()  
@@ -35,8 +49,7 @@ class Club(db.Model):
 class PersonEventStatus(db.Model):
   studentID = db.IntegerProperty()  
   eventKey = db.IntegerProperty() 
-  creationDate = db.DateTimeProperty(auto_now_add=True)
-
+  creationDate = db.DateTimeProperty(auto_now_add=True)  
   
 class Event(db.Model):
   name = db.StringProperty()  
@@ -96,7 +109,8 @@ class registerPerson_Submit(webapp.RequestHandler):
 	authcate = self.request.get('authcate')
 	email = self.request.get('email')
 	phoneNumber = self.request.get('phonenumber')
-	
+	campus = self.request.get('campus')
+
 	person = Person(parent=person_key('defaultkey'))
 
 	
@@ -302,6 +316,74 @@ class addMembers_Submit(webapp.RequestHandler):
 	
 	self.redirect('/addMembers?error=%s' % error)
 
+class addMSACard(webapp.RequestHandler):
+
+    def get(self):
+			error = self.request.get('error')
+			if error == '0':
+				error = 'Success!'
+			elif error == '1':
+				error = 'Looks like you missed something'
+			elif error == '2':
+				error = 'Student ID needs to be a number'
+			elif error == '3':
+				error = 'Student ID match not found'
+			
+			template_values = {
+				'error': error,
+			}
+			
+			
+			path = os.path.join(os.path.dirname(__file__), 'addMSACard.html')
+			self.response.out.write(template.render(path, template_values))			
+	
+class addMSACard_Submit(webapp.RequestHandler):
+  def post(self):
+    # We set the same parent key on the 'Greeting' to ensure each greeting is in
+    # the same entity group. Queries across the single entity group will be
+    # consistent. However, the write rate to a single entity group should
+    # be limited to ~1/second.
+	error = ''
+	try:
+		studentID = int(self.request.get('studentid'))
+	except:
+		error = '2'
+		
+	if error == '':
+		try:
+			if studentID:
+				persons = db.GqlQuery("SELECT * "
+								"FROM Person "
+								"WHERE studentID = :1",
+								studentID)
+				match = False
+				for Person in persons:
+					match = True
+				if match:
+					studentID = studentID
+				else:
+					error = '3'
+			else:
+				error = '1'
+		except:
+			error = '4'
+	
+	if error == '':
+		clubPrimaryKey = 0
+		
+		newClubStatus = PersonClubStatus(parent=personClubStatus_key('defaultkey'))
+		
+		newClubStatus.studentID = studentID
+		newClubStatus.year = int(self.request.get('year'))
+		newClubStatus.clubKey = int(clubPrimaryKey)
+		
+		newClubStatus.put();
+		error = '0'
+		
+	
+	self.redirect('/addMSACard?error=%s' % error)	
+	
+	
 class index(webapp.RequestHandler):
 
     def get(self):
@@ -331,28 +413,37 @@ class viewClubs(webapp.RequestHandler):
 		path = os.path.join(os.path.dirname(__file__), 'viewClubs.html')
 		self.response.out.write(template.render(path, template_values))		
 
+	
 		
 class viewClubMembers(webapp.RequestHandler):
 	def post(self):
 	
 		masterString = ''	
 		clubKey = int(self.request.get('clubinput'))
-		year = int(self.request.get('year'))
-
+		year = self.request.get('year')
+		if year:
+			year = int(self.request.get('year'))
+		else:
+			now = datetime.datetime.now()
+			year = now.year
 		#Searchs for the club (for name/existance)
-		clubs = db.GqlQuery("SELECT * "
+		
+		nameOfClub = ''
+		
+		if clubKey == 0:
+			nameOfClub = 'MSA Cards'
+		else:
+			clubs = db.GqlQuery("SELECT * "
                             "FROM Club ")
-							
-		matchingClub = ''
-		for club in clubs:
-			if club.primaryKey == clubKey:
-				matchingClub = club
+			
+			for club in clubs:
+				if club.primaryKey == clubKey:
+					nameOfClub = club.name
 							
 		template_values = {
 		}
 		
-		if matchingClub:
-			nameOfClub = matchingClub.name
+		if nameOfClub:
 			
 			clubMemberships = db.GqlQuery("SELECT * FROM PersonClubStatus WHERE clubKey = :1 AND year = :2",
 											int(clubKey),year)
@@ -376,12 +467,12 @@ class viewClubMembers(webapp.RequestHandler):
 		path = os.path.join(os.path.dirname(__file__), 'viewClubMembers.html')
 		self.response.out.write(template.render(path, template_values))	
 	def get(self):
-		self.response.out.write('Error, attempted to get. Go back and try again.')
+		self.post()
 
 class selectClubToView(webapp.RequestHandler):
 
     def get(self):
-			clubsMasterString = ''
+			clubsMasterString = '<option value="' + '0' + '">' + 'MSA Card Holders' + '</option>'
 			
 			clubs = db.GqlQuery("SELECT * "
                             "FROM Club "
@@ -726,6 +817,10 @@ application = webapp.WSGIApplication(
 									  ('/addClubSubmit', addClub_Submit),
 									  ('/addMembers', addMembers),
 									  ('/addMembers_Submit', addMembers_Submit),
+									  
+									  ('/addMSACard', addMSACard),
+									  ('/addMSACard_Submit', addMSACard_Submit),
+									  
 									  ('/viewClubs', viewClubs),
 									  ('/clubmembers',viewClubMembers),
 									  ('/selectClubToView',selectClubToView),

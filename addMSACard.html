@@ -29,105 +29,52 @@
     <style>
     </style>
   </head>
+  
   <body>
     <div class="navbar navbar-fixed-top navbar-inverse">
       <div class="navbar-inner">
         <div class="container">
           <a class="brand" href="/">
-            Monash Club Registration
+              Monash Club Registration
           </a>
           <ul class="nav">
           </ul>
         </div>
       </div>
     </div>
-    <div>
-      <p>
-        Welcome! Please enter your details so we can get started. You only have
-        to enter your details once, and then go to a club representatitve so have
-        them enter you into their club.
-      </p>
-	  
-	  {% if error %}
+    <div class="container">
+      <div>
+        <h1>
+          Add MSA Card To Member
+        </h1>
+			  {% if error %}
         <p>
 			<font color="red">
 				{{ error }}
 			</font>
 		</p>
       {% endif %}
-	  
-	  <p>
-	  <font color="red">
-	  
-		</font>
-	  </p>
-    </div>
-	<form action="/submit?%s" method="post">
-    <div class="container">
-      <div class="control-group">
-        <label for="firstname">
-          First Name*
-        </label>
-        <input id="firstname" name="firstname" type="">
       </div>
-      <div class="control-group">
-        <label for="lastname">
-          Last Name*
-        </label>
-        <input id="lastname" name="lastname" type="">
-      </div>
-      <div class="control-group">
-        <label for="authcate">
-          Authcate* (Example: JDAUS1)
-        </label>
-        <input id="authcate" name="authcate" type="">
-      </div>
+	  <form action="/addMSACard_Submit?%s" method="post">
       <div class="control-group">
         <label for="studentid">
-          Student ID* (Example: 24220450)
+          Student ID
         </label>
-        <input id="studentid" name="studentid" type="">
-      </div>
-      <div class="control-group">
-        <label for="email">
-          Email*
-        </label>
-        <input id="email" name="email" type="">
-      </div>
-      <div class="control-group">
-        <label for="phonenumber">
-          Phone Number
-        </label>
-        <input id="phonenumber" name="phonenumber" type="">
+        <input name="studentid" type="" id="studentid">
       </div>
 	  <div class="control-group">
-        <label for="selectinput1">
-          Campus
+        <label for="year">
+          Year
         </label>
-        <select name="campus" id="campus">
-			<option value="1">'Clayton'</option>'
-			<option value="2">'Caulfield'</option>'
-			<option value="3">'Peninsula'</option>'
- 			<option value="4">'Parkville'</option>'
-			<option value="5">'Gippsland'</option>'
- 			<option value="6">'Berwick'</option>'
- 			<option value="7">'India'</option>'
-			<option value="8">'South Africa'</option>'
- 			<option value="9">'Italy'</option>'
-			<option value="10">'Sunway, Malaysia'</option>'
-  			<option value="11">'China'</option>'
-        </select>
+        <input name="year" type="" id="year" value="2013">
       </div>
 	  <div><input type="submit" value="Submit"></div>
+	  </form>
     </div>
-	</form>
-	
-    <style>
-      
-    </style>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js">
     </script>
     <script src="assets/js/bootstrap.js">
     </script>
   </body>
+
 </html>
