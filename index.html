@@ -45,52 +45,97 @@
     <div class="container">
       <div>
         <p>
-          Warning: Super beta.
+          Warning: Beta. If something can be changed, it will be changed. Contact james.austin@terransoftware.com if you have any questions or concerns.
+		  Seperation of responsibilitys by accounts has been implemented. Feel free to contact me if you feel you need access to something, or you feel like you have access to too much.
+		  <br>
+
+		{% if loginMessage %}
+        <p>
+			<font color="red">
+				{{ loginMessage }}
+			</font>
+		</p>
+		{% endif %}
+		
+
+		  
           <br>
-          <br>
+		{% if addNewPerson %}
           <a class="title  imgScanned click" href="/register">
             Add new person.
           </a>
           <br>
+		{% endif %}
+		{% if addMSACard %}
 		  <a class="title  imgScanned click" href="/addMSACard">
             Add MSA Card To Person
           </a>
           <br>
+		{% endif %}
+		{% if addClub %}
           <a class="title  imgScanned click" href="/addClub">
-            Add club
+            Add Club
           </a>
           <br>
+		{% endif %}
+		{% if addMemberToClub %}
           <a class="title  imgScanned click" href="/addMembers">
             Add Member to club
           </a>
           <br>
+		{% endif %}
+		{% if viewClubPermissions %}
+          <a class="title  imgScanned click" href="/selectClubPermissionsToView">
+            View Permissions For Club
+          </a>
+          <br>
+		{% endif %}
+		{% if addPersonnelToClub %}
+          <a class="title  imgScanned click" href="/addPersonnelToClub">
+            Add Personnel To Club
+          </a>
+          <br>
+		{% endif %}
+		{% if viewClubs %}
           <a class="title  imgScanned click" href="/viewClubs">
-            View clubs
+            View Club List
           </a>
 		  <br>
+		{% endif %}
+		{% if viewClubMembers %}
           <a class="title  imgScanned click" href="/selectClubToView">
             View Club Members
           </a>
+		{% endif %}
 		  <br>
 		  <br>
+		{% if addEvent %}
           <a class="title  imgScanned click" href="/addEvent">
             Add Event
           </a>
 		  <br>
+		{% endif %}
+		{% if addPeopleToEvents %}
           <a class="title  imgScanned click" href="/addMembersToEvent">
             Add People To Event
           </a>
 		  <br>
+		{% endif %}
+		{% if viewAllEvents %}
           <a class="title  imgScanned click" href="/viewEvents">
             View All Events
           </a>
 		  <br>
+		{% endif %}
+		{% if viewEventAttendees %}
           <a class="title  imgScanned click" href="/selectEventToView">
             View Event Attendees
           </a>
 		  <br>
+		{% endif %}
         </p>
       </div>
+	  {{ logoutMessage }}
     </div>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js">
     </script>

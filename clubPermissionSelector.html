@@ -35,46 +35,31 @@
       <div class="navbar-inner">
         <div class="container">
           <a class="brand" href="/">
-            Monash Club Registration
+              Monash Club Registration
           </a>
-          
+          <ul class="nav">
+          </ul>
         </div>
       </div>
     </div>
-	<form action="/addClubSubmit?%s" method="post">
-
     <div class="container">
       <div>
         <h1>
-          Add Club
+          Select Club To View Permissions For
         </h1>
-        <p>
-          &nbsp;
-        </p>
       </div>
-	  {% if error %}
-        <p>
-			<font color="red">
-				{{ error }}
-			</font>
-		</p>
-      {% endif %}
+	  <form action="/selectClubPermissionsToView_Submit" method="post">
       <div class="control-group">
-		<label for="clubname">
-          Club Name
+        <label for="selectinput1">
+          Club
         </label>
-        <input id="clubname" name="clubname" type="">
-      </div>
-	  <div class="control-group">
-		<label for="clubgoogleaccount">
-          Google Account Email
-        </label>
-        <input id="clubgoogleaccount" name="clubgoogleaccount" type="">
+        <select name="clubinput" id="clubinput">
+			{{ clubs }}
+        </select>
       </div>
 	  <div><input type="submit" value="Submit"></div>
+	  </form>
     </div>
-	</form>
-
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js">
     </script>
     <script src="assets/js/bootstrap.js">

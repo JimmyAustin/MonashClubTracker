@@ -60,6 +60,13 @@ class Event(db.Model):
   location = db.StringProperty()
   creationDate = db.DateTimeProperty(auto_now_add=True)
 
+class userPermissions(db.Model):
+  email = db.StringProperty()
+  clubKey = db.IntegerProperty()
+  permissionLevel = db.IntegerProperty()
+  #permission levels
+  #2 = admin
+  #1 = club personel
 
 def person_key(person_name=None):
   return db.Key.from_path('person', 'person' or 'default_person')
@@ -75,6 +82,11 @@ def personEventStatus_key(person_name=None):
   
 def event_key(person_name=None):
 	return db.Key.from_path('person', 'event' or 'default_person')  
+	
+def userPermissions_key(person_name=None):
+	return db.Key.from_path('person', 'userPermissions' or 'default_person')    
+  
+#Security: Unsecured. Accessible to all
   
 class registerPerson(webapp.RequestHandler):
 
@@ -96,7 +108,9 @@ class registerPerson(webapp.RequestHandler):
 
 			path = os.path.join(os.path.dirname(__file__), 'register.html')
 			self.response.out.write(template.render(path, template_values))			
-	
+
+#Security: Unsecured. Accessible to all
+			
 class registerPerson_Submit(webapp.RequestHandler):
   def post(self):
     # We set the same parent key on the 'Greeting' to ensure each greeting is in
@@ -162,113 +176,125 @@ class registerPerson_Submit(webapp.RequestHandler):
 		
 	
 	self.redirect('/register?error=%s' % error)
-		
+
+#Security: Restricted to only admins.
+	
 class addClub(webapp.RequestHandler):
 	def get(self):
-			error = self.request.get('error')
-			if error == '0':
-				error = 'Success!'
-			elif error == '1':
-				error = 'Looks like you missed something'
-				
-			template_values = {
-				'error': error
-			}
-			path = os.path.join(os.path.dirname(__file__), 'addClub.html')
-			self.response.out.write(template.render(path, template_values))	
-		
+		if users.is_current_user_admin() == False:
+			self.redirect('/')
+
+		error = self.request.get('error')
+		if error == '0':
+			error = 'Success!'
+		elif error == '1':
+			error = 'Looks like you missed something'
+		elif error == '3':
+			error = 'Email address invalid'
+		template_values = {
+			'error': error
+		}
+		path = os.path.join(os.path.dirname(__file__), 'addClub.html')
+		self.response.out.write(template.render(path, template_values))	
+
+#Security: Restricted to only admins.
+			
 class addClub_Submit(webapp.RequestHandler):
-  def post(self):
+	def post(self):
     # We set the same parent key on the 'Greeting' to ensure each greeting is in
     # the same entity group. Queries across the single entity group will be
     # consistent. However, the write rate to a single entity group should
     # be limited to ~1/second.
-	
-	clubName = self.request.get('clubname')
-	
-	newClub = Club(parent=club_key('defaultkey'))
+		if users.is_current_user_admin() == False:
+			self.redirect('/')
+		
+		clubName = self.request.get('clubname')
+		clubEmail = self.request.get('clubgoogleaccount')
+		newClub = Club(parent=club_key('defaultkey'))
 
-	error = '';
-	if clubName:
-		newClub.name = clubName
-	else:
-		error = '1'
-		
-	if error == '':
-		error = "0"
-		
-		highestNumber = 0
-		
-		clubs = db.GqlQuery("SELECT * "
-                            "FROM Club "
-                            "WHERE ANCESTOR IS :1 ",
-                            club_key('default_club'))
-		
-		for club in clubs:
-			if highestNumber < club.primaryKey:
-				highestNumber = club.primaryKey
-		
-		highestNumber = highestNumber + 1
-		
-		newClub.primaryKey = highestNumber
-		
-		newClub.put();
-		
-		
-	
-	self.redirect('/addClub?error=%s' % error)		
-	
-class getClubs(webapp.RequestHandler):
-	def get(self):
+		error = '';
+		if clubName:
+			newClub.name = clubName
+		else:
+			error = '1'
 			
-		masterString = ''	
+		if clubEmail:
+			if re.match(r"[^@]+@[^@]+\.[^@]+", clubEmail) == False:
+				error = '3'
+		else:
+			error = '1'
 			
-		clubs = db.GqlQuery("SELECT * "
-                            "FROM Club "
-                            "WHERE ANCESTOR IS :1 ",
-                            club_key('default_club'))
+		if error == '':
+			error = "0"
 		
-		for Club in clubs:
-			masterString = Club.name + '<br>' +  masterString
+			highestNumber = 0
 		
-		template_values = {
-				'clubs': masterString
-		}
+			clubs = db.GqlQuery("SELECT * "
+							"FROM Club "
+							"WHERE ANCESTOR IS :1 ",
+							club_key('default_club'))
+		
+			for club in clubs:
+				if highestNumber < club.primaryKey:
+					highestNumber = club.primaryKey
+		
+			highestNumber = highestNumber + 1
+		
+			newClub.primaryKey = highestNumber
+		
+			newClub.put();
 			
-		path = os.path.join(os.path.dirname(__file__), 'viewClubs.html')
-		self.response.out.write(template.render(path, template_values))	
+			newUserPermissions = userPermissions(parent=userPermissions_key('userPermissions'))
+			newUserPermissions.permissionLevel = 2
+			newUserPermissions.clubKey = highestNumber
+			newUserPermissions.email = clubEmail
+			newUserPermissions.put()
+		
+		self.redirect('/addClub?error=%s' % error)		
+
+#Security: Should show all clubs to admins, but only clubs the user is admin in if they are not. 		
 		
 class addMembers(webapp.RequestHandler):
 
     def get(self):
-			error = self.request.get('error')
-			if error == '0':
-				error = 'Success!'
-			elif error == '1':
-				error = 'Looks like you missed something'
-			elif error == '2':
-				error = 'Student ID needs to be a number'
-			elif error == '3':
-				error = 'Student ID match not found'
-			
-			clubsMasterString = ''
-			
-			clubs = db.GqlQuery("SELECT * "
-                            "FROM Club "
-                            "WHERE ANCESTOR IS :1 ",
-                            club_key('default_club'))
+	
+		clubs = []
 		
-			for Club in clubs:
-				clubsMasterString = clubsMasterString + '<option value="' + str(Club.primaryKey) + '">' + Club.name + '</option>'
+		clubsMasterString = ''
 		
-			template_values = {
-				'error': error,
-				'clubs': clubsMasterString
-			}
+		clubs = securityManager.getClubsUserIsPersonnelOf()
+		
+		for Club in clubs:
+				clubsMasterString = clubsMasterString + '<option value="' + str(Club.primaryKey) + '">' + Club.name + '</option>'				
+		
+		if clubsMasterString == '':
+			self.redirect('/')
+		
+		error = self.request.get('error')
+		if error == '0':
+			error = 'Success!'
+		elif error == '1':
+			error = 'Looks like you missed something'
+		elif error == '2':
+			error = 'Student ID needs to be a number'
+		elif error == '3':
+			error = 'Student ID match not found'
+		elif error == '4':
+			error = 'Unknown - 4'
+		elif error == '5':
+			error = 'Permission not found'
+		
+
+	
 			
-			
-			path = os.path.join(os.path.dirname(__file__), 'addMember.html')
-			self.response.out.write(template.render(path, template_values))			
+		template_values = {
+			'error': error,
+			'clubs': clubsMasterString
+		}
+		
+		
+		path = os.path.join(os.path.dirname(__file__), 'addMember.html')
+		self.response.out.write(template.render(path, template_values))			
 	
 class addMembers_Submit(webapp.RequestHandler):
   def post(self):
@@ -281,7 +307,9 @@ class addMembers_Submit(webapp.RequestHandler):
 		studentID = int(self.request.get('studentid'))
 	except:
 		error = '2'
-		
+	
+	clubPrimaryKey = self.request.get('clubinput')
+
 	if error == '':
 		try:
 			if studentID:
@@ -292,17 +320,17 @@ class addMembers_Submit(webapp.RequestHandler):
 				match = False
 				for Person in persons:
 					match = True
-				if match:
-					studentID = studentID
-				else:
+				if match == False:
 					error = '3'
+				permissionLevel = securityManager.getLevelOfAuthenticationForUserForClub(clubPrimaryKey)
+				if permissionLevel == 0:
+					error = '5'
 			else:
 				error = '1'
 		except:
 			error = '4'
 	
 	if error == '':
-		clubPrimaryKey = self.request.get('clubinput')
 		
 		newClubStatus = PersonClubStatus(parent=personClubStatus_key('defaultkey'))
 		
@@ -319,6 +347,9 @@ class addMembers_Submit(webapp.RequestHandler):
 class addMSACard(webapp.RequestHandler):
 
     def get(self):
+			if users.is_current_user_admin() == False:
+				self.redirect('/')
+				
 			error = self.request.get('error')
 			if error == '0':
 				error = 'Success!'
@@ -344,6 +375,10 @@ class addMSACard_Submit(webapp.RequestHandler):
     # consistent. However, the write rate to a single entity group should
     # be limited to ~1/second.
 	error = ''
+	
+	if users.is_current_user_admin() == False:
+		self.redirect('/')
+	
 	try:
 		studentID = int(self.request.get('studentid'))
 	except:
@@ -387,8 +422,104 @@ class addMSACard_Submit(webapp.RequestHandler):
 class index(webapp.RequestHandler):
 
     def get(self):
+			user = users.get_current_user()
+			loginMessage = 'Welcome to the Monash Club Registration System.'
+			
+			addNewPerson = True
+			addMSACard = False
+			addClub = False
+			addMemberToClub = False
+			viewClubs = True
+			viewClubMembers = False
+			viewClubPermissions = False
+			addClubPersonnel = False
+			addEvent = False
+			addPeopleToEvents = False
+			viewAllEvents = False
+			viewEventAttendees = False
+			
+			
+			
+			logoutMessage = ''
+			if user:
+				logoutMessage = '<a href="%s">Click here to logout.</a>' % users.create_logout_url(self.request.uri)
 
+				if users.is_current_user_admin(): #Checks with google app if current user is a admin. Not this doesn't check if they are a club account or not.
+					loginMessage = 'Welcome %s, you have been granted admin rights' % user.nickname()
+					
+					addNewPerson = True
+					addMSACard = True
+					addClub = True
+					addMemberToClub = True
+					viewClubs = True
+					viewClubMembers = True
+					viewClubPermissions = True
+					addClubPersonnel = True
+					addEvent = True
+					addPeopleToEvents = True
+					viewAllEvents = True
+					viewEventAttendees = True					
+
+				else: #Logged in, but not a admin. Determine if can do anything before granting any rights.
+					#Have to determine if they have proper rights
+					match = False
+					memberOf = db.GqlQuery("SELECT * "
+								"FROM userPermissions "
+								"WHERE ANCESTOR IS :1 AND email = :2",
+								userPermissions_key('default_permissions'), user.email())	
+					
+					currentPermissionLevel = 0
+					
+					for userPermissions in memberOf:
+						if userPermissions.permissionLevel > currentPermissionLevel:
+							currentPermissionLevel = userPermissions.permissionLevel
+					
+					if currentPermissionLevel == 1:
+						loginMessage = 'Welcome %s, you have been granted standard rights, limited to your club(s).' % user.nickname()
+
+						addNewPerson = True
+						addMSACard = False
+						addClub = False
+						addMemberToClub = True
+						viewClubs = True
+						viewClubMembers = False
+						viewClubPermissions = False
+						addClubPersonnel = False
+						addEvent = False
+						addPeopleToEvents = True
+						viewAllEvents = False
+						viewEventAttendees = False
+					elif currentPermissionLevel == 2:
+						addNewPerson = True
+						addMSACard = False
+						addClub = False
+						addMemberToClub = True
+						viewClubs = True
+						viewClubMembers = True
+						viewClubPermissions = True
+						addClubPersonnel = True
+						addEvent = True
+						addPeopleToEvents = True
+						viewAllEvents = False
+						viewEventAttendees = True	
+			else:
+				loginMessage = 'You do not appear to be logged in. <a href="%s">Click here to login.</a> You do not have to be logged in to perform some actions.' % users.create_login_url(self.request.uri)
+	
 			template_values = {
+				'loginMessage': loginMessage,
+				'logoutMessage': logoutMessage,
+				'addNewPerson': addNewPerson,
+				'addMSACard': addMSACard,
+				'addClub': addClub,
+				'addMemberToClub': addMemberToClub,
+				'viewClubPermissions': viewClubPermissions,
+				'viewClubs': viewClubs,
+				'viewClubMembers': viewClubMembers,
+				'addPersonnelToClub':addClubPersonnel,
+				'addEvent': addEvent,
+				'addPeopleToEvents': addPeopleToEvents,
+				'viewAllEvents': viewAllEvents,
+				'viewEventAttendees': viewEventAttendees
 			}
 			
 			path = os.path.join(os.path.dirname(__file__), 'index.html')
@@ -431,8 +562,17 @@ class viewClubMembers(webapp.RequestHandler):
 		nameOfClub = ''
 		
 		if clubKey == 0:
-			nameOfClub = 'MSA Cards'
+			if users.is_current_user_admin() == False:
+				nameOfClub = 'MSA Cards'
+			else:
+				self.redirect('/')
 		else:
+			
+			permissionLevel = securityManager.getLevelOfAuthenticationForUserForClub(clubKey)
+			
+			if permissionLevel != 2:
+				self.redirect('/')
+			
 			clubs = db.GqlQuery("SELECT * "
                             "FROM Club ")
 			
@@ -472,15 +612,17 @@ class viewClubMembers(webapp.RequestHandler):
 class selectClubToView(webapp.RequestHandler):
 
     def get(self):
-			clubsMasterString = '<option value="' + '0' + '">' + 'MSA Card Holders' + '</option>'
+			clubsMasterString = ''
+			if users.is_current_user_admin():
+				clubsMasterString = '<option value="' + '0' + '">' + 'MSA Card Holders' + '</option>'
 			
-			clubs = db.GqlQuery("SELECT * "
-                            "FROM Club "
-                            "WHERE ANCESTOR IS :1 ",
-                            club_key('default_club'))
+			clubs = securityManager.getClubsUserIsAdminOf()
 		
 			for Club in clubs:
 				clubsMasterString = clubsMasterString + '<option value="' + str(Club.primaryKey) + '">' + Club.name + '</option>'
+		
+			if clubsMasterString == '':
+				self.redirect('/')
 		
 			template_values = {
 				'clubs': clubsMasterString
@@ -489,6 +631,163 @@ class selectClubToView(webapp.RequestHandler):
 			path = os.path.join(os.path.dirname(__file__), 'clubMemberSelector.html')
 			self.response.out.write(template.render(path, template_values))			
 
+			
+class selectClubPermissionsToView(webapp.RequestHandler):
+
+    def get(self):
+			clubsMasterString = ''
+			
+			clubs = securityManager.getClubsUserIsAdminOf()
+
+			for Club in clubs:
+				clubsMasterString = clubsMasterString + '<option value="' + str(Club.primaryKey) + '">' + Club.name + '</option>'
+		
+			if clubsMasterString == '':
+				self.redirect('/')
+		
+			template_values = {
+				'clubs': clubsMasterString
+			}
+			
+			path = os.path.join(os.path.dirname(__file__), 'clubPermissionSelector.html')
+			self.response.out.write(template.render(path, template_values))			
+
+class selectClubPermissionsToView_Submit(webapp.RequestHandler):
+	def post(self):
+	
+		masterString = ''	
+		clubKey = self.request.get('clubinput')
+		if clubKey:
+			try:
+				clubKey = int(clubKey)
+			except:
+				logging.info('1')
+				self.redirect('/')
+		else:
+			logging.info('2')
+
+			self.redirect('/')
+			
+		#Searchs for the club (for name/existance)
+		
+		nameOfClub = ''
+		
+
+		clubs = securityManager.getClubsUserIsAdminOf()
+		
+		for club in clubs:
+			if club.primaryKey == clubKey:
+				nameOfClub = club.name
+		
+		if nameOfClub == '':
+			self.redirect('/')
+		
+		template_values = {
+		}
+		
+		if nameOfClub:
+		
+			memberOf = db.GqlQuery("SELECT * "
+								"FROM userPermissions "
+								"WHERE ANCESTOR IS :1 AND clubKey = :2",
+								userPermissions_key('default_permissions'), clubKey)
+
+			for permissions in memberOf:
+				if permissions.permissionLevel == 2:
+					masterString = masterString + permissions.email + '<br>Admin<br><br>'
+				elif permissions.permissionLevel == 1:
+					masterString = masterString + permissions.email + '<br>Personnel<br><br>'
+				else:
+					masterString = masterString + permissions.email + '<br>Unknown<br><br>'
+			template_values = {
+				'nameOfClub': nameOfClub,
+				'table'		: masterString
+			}
+		else:
+			template_values = {
+				'nameOfClub': 'Error',
+				'table'		: 'Club not found'
+			}
+
+		path = os.path.join(os.path.dirname(__file__), 'viewClubPermissions.html')
+		self.response.out.write(template.render(path, template_values))	
+	def get(self):
+		self.post()			
+
+class addPersonnelToClub(webapp.RequestHandler):
+
+    def get(self):
+	
+		clubs = []
+		
+		clubsMasterString = ''
+		
+		clubs = securityManager.getClubsUserIsAdminOf()
+		
+		for Club in clubs:
+				clubsMasterString = clubsMasterString + '<option value="' + str(Club.primaryKey) + '">' + Club.name + '</option>'				
+		
+		if clubsMasterString == '':
+			self.redirect('/')
+		
+		error = self.request.get('error')
+		if error == '0':
+			error = 'Success!'
+		elif error == '1':
+			error = 'Looks like you missed something'
+		elif error == '2':
+			error = 'Student ID needs to be a number'
+		elif error == '3':
+			error = 'Student ID match not found'
+		elif error == '4':
+			error = 'Unknown - 4'
+		elif error == '5':
+			error = 'Permission not found'
+		
+
+	
+			
+		template_values = {
+			'error': error,
+			'clubs': clubsMasterString
+		}
+		
+		
+		path = os.path.join(os.path.dirname(__file__), 'addPersonnel.html')
+		self.response.out.write(template.render(path, template_values))			
+	
+class addPersonnelToClub_Submit(webapp.RequestHandler):
+  def post(self):
+    # We set the same parent key on the 'Greeting' to ensure each greeting is in
+    # the same entity group. Queries across the single entity group will be
+    # consistent. However, the write rate to a single entity group should
+    # be limited to ~1/second.
+	error = ''
+		
+	clubPrimaryKey = self.request.get('clubinput')
+	email = self.request.get('email')
+		
+	if clubPrimaryKey:
+		clubPrimaryKey = int(self.request.get('clubinput'))
+		if securityManager.getLevelOfAuthenticationForUserForClub(clubPrimaryKey) == 2:
+			if email:
+				newUserPermissions = userPermissions(parent=userPermissions_key('userPermissions'))
+				newUserPermissions.permissionLevel = 1
+				newUserPermissions.clubKey = clubPrimaryKey
+				newUserPermissions.email = email
+				newUserPermissions.put()
+				error = '0'
+			else:
+				error = '3'
+		else:
+			error = '5'
+	else:
+		error = '2'
+
+	
+	self.redirect('/addPersonnelToClub?error=%s' % error)
+
+		
 class addEvent(webapp.RequestHandler):
 	def get(self):
 	
@@ -502,14 +801,15 @@ class addEvent(webapp.RequestHandler):
 			
 			clubsMasterString = ''
 			
-			clubs = db.GqlQuery("SELECT * "
-                            "FROM Club "
-                            "WHERE ANCESTOR IS :1 ",
-                            club_key('default_club'))
+			clubs = securityManager.getClubsUserIsAdminOf()
+
 		
 			for Club in clubs:
 				clubsMasterString = clubsMasterString + '<option value="' + str(Club.primaryKey) + '">' + Club.name + '</option>'
 		
+			if clubsMasterString == '':
+				self.redirect('/')
+				
 			template_values = {
 				'error': error,
 				'clubs': clubsMasterString
@@ -532,8 +832,11 @@ class addEvent_Submit(webapp.RequestHandler):
 	clubPrimaryKey = self.request.get('clubinput')
 
 	newEvent = Event(parent=event_key('defaultkey'))
-
+	
 	error = '';
+	
+	
+	
 	if eventName:
 		newEvent.name = eventName
 	else:
@@ -548,21 +851,22 @@ class addEvent_Submit(webapp.RequestHandler):
 		newEvent.location = location
 	else:
 		error = '1'
-		
-	clubs = db.GqlQuery("SELECT * "
-                            "FROM Club "
-                            "WHERE ANCESTOR IS :1 ",
-                            club_key('default_club'))
+	
+	
+	
+	clubs = securityManager.getClubsUserIsAdminOf()
 							
 	logging.info('Event')
 	logging.info(clubPrimaryKey)
 	intClubPrimaryKey = int(clubPrimaryKey)
+	newEvent.clubName = ''
 	for Club in clubs:
 		if Club.primaryKey == intClubPrimaryKey:
 			newEvent.clubName = Club.name
 			logging.info('Matched name')
 
-	
+	if newEvent.clubName == '':
+		error = '5'
 	newEvent.clubKey = int(clubPrimaryKey)
 
 	
@@ -592,6 +896,10 @@ class addEvent_Submit(webapp.RequestHandler):
 
 class viewEvents(webapp.RequestHandler):
 	def get(self):
+	
+		if users.is_current_user_admin() == False:
+			self.redirect('/')
+			
 		masterString = ''	
 
 		events = db.GqlQuery("SELECT * "
@@ -643,22 +951,29 @@ class addMembersToEvent(webapp.RequestHandler):
                             "FROM Event "
                             "WHERE ANCESTOR IS :1 ",
                             event_key('default_club'))
-		
+			
+			clubs = securityManager.getClubsUserIsPersonnelOf()
+			
+			
 			for event in events:
+				for club in clubs:
+					if event.clubKey == club.primaryKey:
+						eventline = ''
 			
-				eventline = ''
+						if event.name:
+							eventline = event.name
+						
+						if event.date:
+							eventline = eventline + ' - ' + event.date
+						
+						if event.clubName:
+							eventline = eventline + ' - ' + event.clubName			
+					
+						eventsMasterString = eventsMasterString + '<option value="' + str(event.primaryKey) + '">' + eventline +'</option>'
 			
-				if event.name:
-					eventline = event.name
-				
-				if event.date:
-					eventline = eventline + ' - ' + event.date
-				
-				if event.clubName:
-					eventline = eventline + ' - ' + event.clubName			
+			if eventsMasterString == '':
+				self.redirect('/')
 			
-				eventsMasterString = eventsMasterString + '<option value="' + str(event.primaryKey) + '">' + eventline +'</option>'
-		
 			template_values = {
 				'error': error,
 				'events': eventsMasterString
@@ -670,10 +985,6 @@ class addMembersToEvent(webapp.RequestHandler):
 	
 class addMembersToEvent_Submit(webapp.RequestHandler):
   def post(self):
-    # We set the same parent key on the 'Greeting' to ensure each greeting is in
-    # the same entity group. Queries across the single entity group will be
-    # consistent. However, the write rate to a single entity group should
-    # be limited to ~1/second.
 	error = ''
 	try:
 		studentID = int(self.request.get('studentid'))
@@ -690,9 +1001,7 @@ class addMembersToEvent_Submit(webapp.RequestHandler):
 				match = False
 				for Person in persons:
 					match = True
-				if match:
-					studentID = studentID
-				else:
+				if match == False:
 					error = '3'
 			else:
 				error = '1'
@@ -700,12 +1009,32 @@ class addMembersToEvent_Submit(webapp.RequestHandler):
 			error = '4'
 	
 	if error == '':
-		clubPrimaryKey = self.request.get('eventinput')
+		eventKey = self.request.get('eventinput')
+		eventKey = int(eventKey)
+		
+		clubs = securityManager.getClubsUserIsPersonnelOf()
+		
+		events = db.GqlQuery("SELECT * "
+                            "FROM Event "
+                            "WHERE ANCESTOR IS :1 AND primaryKey = :2",
+                            event_key('default_club'), eventKey)
+			
+		clubs = securityManager.getClubsUserIsPersonnelOf()
+			
+		match = False
+		
+		for event in events:
+			for club in clubs:
+				if event.clubKey == club.primaryKey:
+					match = True
+		
+		if match == False:
+			self.redirect('/')
 		
 		personEventStatus = PersonEventStatus(parent=personEventStatus_key('defaultkey'))
 		
 		personEventStatus.studentID = studentID
-		personEventStatus.eventKey = int(clubPrimaryKey)
+		personEventStatus.eventKey = eventKey
 		
 		personEventStatus.put();
 		logging.info('successfully put')
@@ -721,6 +1050,26 @@ class viewEventMembers(webapp.RequestHandler):
 		masterString = ''	
 		eventKey = int(self.request.get('eventinput'))
 
+		match = False
+		
+		events = db.GqlQuery("SELECT * FROM Event WHERE eventKey = :1",
+											int(eventKey))
+		
+		currentEvent = ''
+		
+		for event in events:									
+			currentEvent = event
+			
+		clubKey = currentEvent.clubKey
+		
+		clubs = securityManager.getLevelOfAuthenticationForUserForClub()
+		match = False
+		for club in clubs:
+			if club.primaryKey == clubKey:
+				match = True
+		
+		if match == False:
+			self.redirect('/')
 		#Searchs for the club (for name/existance)
 		
 		eventMemberships = db.GqlQuery("SELECT * FROM PersonEventStatus WHERE eventKey = :1",
@@ -729,7 +1078,6 @@ class viewEventMembers(webapp.RequestHandler):
 		masterString = ''	
 		template_values = {
 		}	
-		logging.info(eventKey)
 		
 		for membership in eventMemberships:
 			logging.info('person2')
@@ -782,33 +1130,103 @@ class selectEventToView(webapp.RequestHandler):
     def get(self):
 			eventsMasterString = ''
 			
-			events = db.GqlQuery("SELECT * "
-                            "FROM Event "
-                            "WHERE ANCESTOR IS :1 ",
-                            event_key('default_key'))
+			clubs = securityManager.getClubsUserIsAdminOf()
 			
-			for event in events:
-				eventline = ''
-			
-				if event.name:
-					eventline = event.name
+			for club in clubs:
+				events = db.GqlQuery("SELECT * "
+								"FROM Event "
+								"WHERE ANCESTOR IS :1 AND clubKey = :2",
+								event_key('default_key'), club.primaryKey)
 				
-				if event.date:
-					eventline = eventline + ' - ' + event.date
+				for event in events:
+					eventline = ''
 				
-				if event.clubName:
-					eventline = eventline + ' - ' + event.clubName			
+					if event.name:
+						eventline = event.name
+					
+					if event.date:
+						eventline = eventline + ' - ' + event.date
+					
+					if event.clubName:
+						eventline = eventline + ' - ' + event.clubName			
+				
+					eventsMasterString = eventsMasterString + '<option value="' + str(event.primaryKey) + '">' + eventline +'</option>'
 			
-				eventsMasterString = eventsMasterString + '<option value="' + str(event.primaryKey) + '">' + eventline +'</option>'
-		
-		
+			
 			template_values = {
 				'events': eventsMasterString
 			}
 			
 			path = os.path.join(os.path.dirname(__file__), 'eventSelector.html')
 			self.response.out.write(template.render(path, template_values))		
+
+class securityManager():
+	@staticmethod
+	def getLevelOfAuthenticationForUserForClub(clubPrimaryKey):
+		user = users.get_current_user()
+		if not user:
+			return 0 #User has 0 rights.
+		else:
+			if users.is_current_user_admin():
+				return 2 #User has same rights as club admin.
+			else:
+				#User is logged in, but not a admin. Search for priorites
+				memberOf = db.GqlQuery("SELECT * "
+								"FROM userPermissions "
+								"WHERE ANCESTOR IS :1 AND email = :2 AND clubKey = :3",
+								userPermissions_key('default_permissions'), user.email(), clubPrimaryKey)
+				for permissions in memberOf:
+					if permissions.clubKey == clubPrimaryKey:
+						return permissions.permissionLevel
+	@staticmethod			
+	def getClubsUserIsAdminOf():
+		return securityManager.getClubsWhereUserHasPermissionLevelsOf(2)
+		
+	@staticmethod			
+	def getClubsWhereUserHasPermissionLevelsOf(minimumPermissionLevel):		
+		user = users.get_current_user()
+		logging.info('Getting level of auth:' + str(minimumPermissionLevel))
+
+		if not user:
+			logging.info('User not found')
+			return [] #User not logged in, no rights.
+		else:
+			if users.is_current_user_admin():
+				logging.info('User admin')
+
+				return securityManager.getAllClubs()
+			else:	
+				array = []
+				
+				memberOf = db.GqlQuery("SELECT * "
+								"FROM userPermissions "
+								"WHERE ANCESTOR IS :1 AND email = :2",
+								userPermissions_key('default_permissions'), user.email())
+								
+				for userPermissions in memberOf:
+					if userPermissions.permissionLevel >= minimumPermissionLevel:
+						logging.info('Found permission, with correct levels')
+
+						clubs = db.GqlQuery("SELECT * "
+								"FROM Club "
+								"WHERE ANCESTOR IS :1 AND primaryKey = :2",
+								club_key('default_club'), userPermissions.clubKey)
+						for club in clubs:
+							array.append(club)
+							logging.info('Found something')
+					else:
+						logging.info('Not permission')
 	
+				return array
+	@staticmethod			
+	def getAllClubs():
+		clubs = db.GqlQuery("SELECT * "
+								"FROM Club")			
+		return clubs
+	@staticmethod			
+	def getClubsUserIsPersonnelOf():
+		return securityManager.getClubsWhereUserHasPermissionLevelsOf(1)
+
 application = webapp.WSGIApplication(
                                      [('/',index),
 									  ('/register', registerPerson),
@@ -824,6 +1242,13 @@ application = webapp.WSGIApplication(
 									  ('/viewClubs', viewClubs),
 									  ('/clubmembers',viewClubMembers),
 									  ('/selectClubToView',selectClubToView),
+									  
+									  ('/addPersonnelToClub',addPersonnelToClub),
+									  ('/addPersonnelToClub_Submit',addPersonnelToClub_Submit),
+
+									  
+									  ('/selectClubPermissionsToView',selectClubPermissionsToView),
+									  ('/selectClubPermissionsToView_Submit',selectClubPermissionsToView_Submit),
 									  
 									  ('/addEvent', addEvent),
 									  ('/addEventSubmit', addEvent_Submit),

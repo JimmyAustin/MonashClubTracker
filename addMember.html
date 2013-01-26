@@ -47,13 +47,13 @@
         <h1>
           Add Member
         </h1>
-			  {% if error %}
+		{% if error %}
         <p>
 			<font color="red">
 				{{ error }}
 			</font>
 		</p>
-      {% endif %}
+		{% endif %}
       </div>
 	  <form action="/addMembers_Submit?%s" method="post">
       <div class="control-group">

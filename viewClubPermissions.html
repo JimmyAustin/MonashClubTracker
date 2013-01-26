@@ -37,44 +37,21 @@
           <a class="brand" href="/">
             Monash Club Registration
           </a>
-          
+          <ul class="nav">
+          </ul>
         </div>
       </div>
     </div>
-	<form action="/addClubSubmit?%s" method="post">
-
     <div class="container">
       <div>
         <h1>
-          Add Club
+		{{ nameOfClub }}
         </h1>
         <p>
-          &nbsp;
+		{{ table }}
         </p>
       </div>
-	  {% if error %}
-        <p>
-			<font color="red">
-				{{ error }}
-			</font>
-		</p>
-      {% endif %}
-      <div class="control-group">
-		<label for="clubname">
-          Club Name
-        </label>
-        <input id="clubname" name="clubname" type="">
-      </div>
-	  <div class="control-group">
-		<label for="clubgoogleaccount">
-          Google Account Email
-        </label>
-        <input id="clubgoogleaccount" name="clubgoogleaccount" type="">
-      </div>
-	  <div><input type="submit" value="Submit"></div>
     </div>
-	</form>
-
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js">
     </script>
     <script src="assets/js/bootstrap.js">
