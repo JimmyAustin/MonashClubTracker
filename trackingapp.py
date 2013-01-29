@@ -21,6 +21,7 @@ class Person(db.Model):
   authcate = db.StringProperty()
   studentID = db.IntegerProperty()
   email = db.StringProperty()
+  address= db.StringProperty()
   campus = db.IntegerProperty()
   phoneNumber = db.StringProperty()
   
@@ -41,7 +42,8 @@ class PersonClubStatus(db.Model):
   studentID = db.IntegerProperty()  
   year = db.IntegerProperty()  
   clubKey = db.IntegerProperty() 
-  
+  joiningDate = db.DateTimeProperty(auto_now_add=True)  
+
 class Club(db.Model):
   name = db.StringProperty()  
   primaryKey = db.IntegerProperty()  
@@ -124,7 +126,7 @@ class registerPerson_Submit(webapp.RequestHandler):
 	email = self.request.get('email')
 	phoneNumber = self.request.get('phonenumber')
 	campus = self.request.get('campus')
-
+	address = self.request.get('address')
 	person = Person(parent=person_key('defaultkey'))
 
 	
@@ -148,13 +150,29 @@ class registerPerson_Submit(webapp.RequestHandler):
 	try:
 		studentID = int(self.request.get('studentid'))
 		if studentID:
+			match = False
+			persons = db.GqlQuery("SELECT * "
+							"FROM Person "
+							"WHERE ANCESTOR IS :1 AND studentID = :2 ",
+							person_key('default_person'), studentID)
+			for people in persons:
+				error = '4'
+				
 			person.studentID = studentID
 		else:
 			error = '1'
 	except:
 		error = '2'
 		
-	
+	if campus:
+		person.campus = int(campus)
+	else:
+		error = '1'
+		
+	if address:
+		person.address = address
+	else:
+		error = '1'	
 		
 	if email:
 		if re.match(r"[^@]+@[^@]+\.[^@]+", email):
@@ -280,7 +298,7 @@ class addMembers(webapp.RequestHandler):
 		elif error == '3':
 			error = 'Student ID match not found'
 		elif error == '4':
-			error = 'Unknown - 4'
+			error = 'Match already found'
 		elif error == '5':
 			error = 'Permission not found'
 		
@@ -303,6 +321,13 @@ class addMembers_Submit(webapp.RequestHandler):
     # consistent. However, the write rate to a single entity group should
     # be limited to ~1/second.
 	error = ''
+	
+	year = self.request.get('year')
+	if year:
+		year = int(self.request.get('year'))
+	else:
+		error = '1' 
+
 	try:
 		studentID = int(self.request.get('studentid'))
 	except:
@@ -310,6 +335,11 @@ class addMembers_Submit(webapp.RequestHandler):
 	
 	clubPrimaryKey = self.request.get('clubinput')
 
+	if clubPrimaryKey:
+		clubPrimaryKey = int(clubPrimaryKey)
+	else:
+		error = '1' 
+	
 	if error == '':
 		try:
 			if studentID:
@@ -331,11 +361,22 @@ class addMembers_Submit(webapp.RequestHandler):
 			error = '4'
 	
 	if error == '':
+	#Check if it already exists.
+				
+		clubMemberships = db.GqlQuery("SELECT * "
+								"FROM PersonClubStatus "
+								"WHERE studentID = :1 AND year = :2 AND clubKey = :3",
+								studentID,year, clubPrimaryKey)
+		
+		for person in clubMemberships:
+			error = '4'
+	
+	if error == '':
 		
 		newClubStatus = PersonClubStatus(parent=personClubStatus_key('defaultkey'))
 		
 		newClubStatus.studentID = studentID
-		newClubStatus.year = int(self.request.get('year'))
+		newClubStatus.year = year
 		newClubStatus.clubKey = int(clubPrimaryKey)
 		
 		newClubStatus.put();
@@ -359,7 +400,9 @@ class addMSACard(webapp.RequestHandler):
 				error = 'Student ID needs to be a number'
 			elif error == '3':
 				error = 'Student ID match not found'
-			
+			elif error == '4':
+				error = 'Already found for year'
+				
 			template_values = {
 				'error': error,
 			}
@@ -375,7 +418,12 @@ class addMSACard_Submit(webapp.RequestHandler):
     # consistent. However, the write rate to a single entity group should
     # be limited to ~1/second.
 	error = ''
-	
+	year = self.request.get('year')
+	if year:
+		year = int(self.request.get('year'))
+	else:
+		error = '1'
+		
 	if users.is_current_user_admin() == False:
 		self.redirect('/')
 	
@@ -398,19 +446,33 @@ class addMSACard_Submit(webapp.RequestHandler):
 					studentID = studentID
 				else:
 					error = '3'
+					
+
+					
 			else:
 				error = '1'
 		except:
 			error = '4'
+			
+	if error == '':
+		#Check if it already exists.
+				
+		MSAMemberships = db.GqlQuery("SELECT * "
+								"FROM PersonClubStatus "
+								"WHERE studentID = :1 AND year = :2 AND clubKey = 0",
+								studentID,year)
+		
+		for person in MSAMemberships:
+			error = '4'
+		
 	
 	if error == '':
-		clubPrimaryKey = 0
 		
 		newClubStatus = PersonClubStatus(parent=personClubStatus_key('defaultkey'))
 		
 		newClubStatus.studentID = studentID
-		newClubStatus.year = int(self.request.get('year'))
-		newClubStatus.clubKey = int(clubPrimaryKey)
+		newClubStatus.year = year
+		newClubStatus.clubKey = 0
 		
 		newClubStatus.put();
 		error = '0'
@@ -550,7 +612,11 @@ class viewClubMembers(webapp.RequestHandler):
 	def post(self):
 	
 		masterString = ''	
-		clubKey = int(self.request.get('clubinput'))
+		clubKey = self.request.get('clubinput')
+		if clubKey:
+			clubKey = int(clubKey)
+		else:
+			self.redirect('/')
 		year = self.request.get('year')
 		if year:
 			year = int(self.request.get('year'))
@@ -587,13 +653,37 @@ class viewClubMembers(webapp.RequestHandler):
 			
 			clubMemberships = db.GqlQuery("SELECT * FROM PersonClubStatus WHERE clubKey = :1 AND year = :2",
 											int(clubKey),year)
-			masterString = ''			
+			masterString = '<table border="1"><th>Full Name</th><th>Student ID</th><th>MSA At Signup</th><th>MSA As Of End Of Year</th><th>Address</th><th>Phone Number</th><th>Monash Email</th><th>Email</th><th>Signup Date</th>'	
+
 			for membership in clubMemberships:
 				people = db.GqlQuery("SELECT * FROM Person WHERE studentID = :1",
 											membership.studentID)
-				for person in people:
-					masterString = masterString + str(person.studentID) + '<br>' + person.firstName + ' ' + person.lastName + '<br><br>'
 
+				for person in people:
+					name = person.firstName + ' ' + person.lastName
+					studentID = str(person.studentID)
+					address = person.address
+					phoneNumber = 0
+					if person.phoneNumber:
+						phoneNumber = person.phoneNumber
+					monashEmail = person.authcate + '@student.monash.edu'
+					email = person.email
+					signupDate = membership.joiningDate
+					day = signupDate.day
+					month = signupDate.month
+					year = signupDate.year
+					
+					MSACardHolderAtSignup = 'N'
+					MSACardHolderAtEndOfThatYear = 'N'
+
+					msaMemberships = db.GqlQuery("SELECT * FROM PersonClubStatus WHERE clubKey = 0 AND year = :1",year)
+					for memberships in msaMemberships:
+						MSACardHolderAtEndOfThatYear = 'Y'
+						if memberships.joiningDate < signupDate:
+							MSACardHolderAtSignup = 'Y'
+					masterString = masterString + '<tr><td>' + name + '</td><td>' + str(studentID) + '</td><td>' + MSACardHolderAtSignup + '</td><td>' + MSACardHolderAtEndOfThatYear + '</td><td>' + address + '</td><td>' + str(phoneNumber) + '</td><td>' + monashEmail + '</td><td>' + email + '</td><td>' + str(day) + '/' + str(month) + '/' + str(year) + '</td></tr>'
+
+			masterString = masterString + '</table>'
 			template_values = {
 				'nameOfClub': nameOfClub,
 				'table'		: masterString
@@ -743,7 +833,8 @@ class addPersonnelToClub(webapp.RequestHandler):
 			error = 'Unknown - 4'
 		elif error == '5':
 			error = 'Permission not found'
-		
+		elif error == '6':
+			error = 'Match not found'
 
 	
 			
@@ -775,8 +866,21 @@ class addPersonnelToClub_Submit(webapp.RequestHandler):
 				newUserPermissions.permissionLevel = 1
 				newUserPermissions.clubKey = clubPrimaryKey
 				newUserPermissions.email = email
-				newUserPermissions.put()
-				error = '0'
+				
+			#Check if it already exists.
+				
+				userPermission = db.GqlQuery("SELECT * "
+								"FROM userPermissions "
+								"WHERE email = :1 AND clubKey = :2",
+								email, clubPrimaryKey)
+		
+				for permissions in userPermission:
+					error = '6'
+				
+				if error == '':
+					newUserPermissions.put()
+					error = '0'
+
 			else:
 				error = '3'
 		else:
@@ -784,6 +888,8 @@ class addPersonnelToClub_Submit(webapp.RequestHandler):
 	else:
 		error = '2'
 
+		
+		
 	
 	self.redirect('/addPersonnelToClub?error=%s' % error)
 
@@ -890,8 +996,6 @@ class addEvent_Submit(webapp.RequestHandler):
 		
 		newEvent.put();
 		
-		
-	
 	self.redirect('/addEvent?error=%s' % error)	
 
 class viewEvents(webapp.RequestHandler):
@@ -944,7 +1048,9 @@ class addMembersToEvent(webapp.RequestHandler):
 				error = 'Student ID needs to be a number'
 			elif error == '3':
 				error = 'Student ID match not found'
-			
+			elif error == '4':
+				error = 'Student already in event'
+				
 			eventsMasterString = ''
 			
 			events = db.GqlQuery("SELECT * "
@@ -1030,16 +1136,25 @@ class addMembersToEvent_Submit(webapp.RequestHandler):
 		
 		if match == False:
 			self.redirect('/')
-		
-		personEventStatus = PersonEventStatus(parent=personEventStatus_key('defaultkey'))
-		
-		personEventStatus.studentID = studentID
-		personEventStatus.eventKey = eventKey
-		
-		personEventStatus.put();
-		logging.info('successfully put')
+			
+		eventStatus = db.GqlQuery("SELECT * "
+                            "FROM PersonEventStatus "
+                            "WHERE ANCESTOR IS :1 AND eventKey = :2 AND studentID = :3",
+                            personEventStatus_key('default_eventstatus'), eventKey, studentID)
+			
+		for status in eventStatus:	
+			error = '4'
+			
+		if error == '':	
+			personEventStatus = PersonEventStatus(parent=personEventStatus_key('defaultkey'))
+			
+			personEventStatus.studentID = studentID
+			personEventStatus.eventKey = eventKey
+			
+			personEventStatus.put();
+			logging.info('successfully put')
 
-		error = '0'
+			error = '0'
 		
 	
 	self.redirect('/addMembersToEvent?error=%s' % error)	
@@ -1052,21 +1167,28 @@ class viewEventMembers(webapp.RequestHandler):
 
 		match = False
 		
-		events = db.GqlQuery("SELECT * FROM Event WHERE eventKey = :1",
+		events = db.GqlQuery("SELECT * FROM Event WHERE primaryKey = :1",
 											int(eventKey))
 		
-		currentEvent = ''
+		currentEvent = Event(parent=event_key('defaultkey'))
+		clubKey = -0
 		
+		eventName = ''
+		eventDate = ''
+		eventLocation = ''
+		clubName = ''
 		for event in events:									
-			currentEvent = event
-			
-		clubKey = currentEvent.clubKey
-		
-		clubs = securityManager.getLevelOfAuthenticationForUserForClub()
+			clubKey = event.clubKey
+			eventName = event.name
+			eventDate = event.date
+			eventLocation = event.location
+							
+		clubs = securityManager.getClubsUserIsAdminOf()
 		match = False
 		for club in clubs:
 			if club.primaryKey == clubKey:
 				match = True
+				clubName = club.name
 		
 		if match == False:
 			self.redirect('/')
@@ -1075,7 +1197,7 @@ class viewEventMembers(webapp.RequestHandler):
 		eventMemberships = db.GqlQuery("SELECT * FROM PersonEventStatus WHERE eventKey = :1",
 											int(eventKey))
 		
-		masterString = ''	
+		masterString = '<table border="1"><th>Full Name</th><th>Club Member</th><th>Clayton Student</th><th>Monash Clayton Student ID Number</th><th>MSA Card Holder</th><th>Phone Number</th>'	
 		template_values = {
 		}	
 		
@@ -1085,39 +1207,54 @@ class viewEventMembers(webapp.RequestHandler):
 			people = db.GqlQuery("SELECT * FROM Person WHERE studentID = :1",
 											membership.studentID)
 			for person in people:
+				
 				logging.info('person')
 				
-				personLine = ''
-			
+				name = ''
+				claytonStudent = ''
+				studentID = ''
+				phoneNumber = ''
+				
 				if person.firstName:
-					personLine = person.firstName
+					name = person.firstName
 				
 				if person.lastName:
-					personLine = personLine + ' ' + person.lastName
+					name = name + ' ' + person.lastName
 				
 				if person.studentID:
-					personLine = personLine + '<br>' + str(person.studentID)
+					studentID = str(person.studentID)
+				
+				if person.phoneNumber:
+					phoneNumber = str(person.phoneNumber)
+				
+				if person.campus == 1:
+					claytonStudent = 'Y'
+				else:
+					claytonStudent = 'N'
+				
+				MSACardStatus = db.GqlQuery("SELECT * FROM PersonClubStatus WHERE studentID = :1 AND clubKey = 0", membership.studentID)
+				MSACardHolder = 'N'
+				
+				for status in MSACardStatus:
+					MSACardHolder = 'Y'
 					
-				if membership.creationDate:
-					personLine = personLine + '<br> Created: ' + str(membership.creationDate)
+				ClubStatus = db.GqlQuery("SELECT * FROM PersonClubStatus WHERE studentID = :1 AND clubKey = :2", membership.studentID, clubKey)
+				clubMember = 'N'
+				
+				for status in ClubStatus:
+					clubMember = 'Y'	
 					
-				masterString = masterString + '<br><br>' + personLine
+				masterString = masterString + '<tr><td>' + name + '</td><td>' + clubMember +'</td><td>' + claytonStudent + '</td><td>' + studentID + '</td><td>' + MSACardHolder + '</td><td>' + phoneNumber + '</td></tr>'
 	
 	
-		if masterString == '':
-			masterString = 'No attendees found.'
+		masterString = masterString + '</table>'
 			
-		events = db.GqlQuery("SELECT * "
-                            "FROM Event ")
-							
-		eventName = ''
-		for event in events:
-			if event.primaryKey == eventKey:
-				 eventName = event.name
+
 			
 		template_values = {
 			'nameOfEvent': eventName,
-			'table'		: masterString
+			'table'		: masterString,
+			'title'		: eventName + ' - ' + clubName + ' - ' + eventDate + ' - ' + eventLocation
 		}
 
 		path = os.path.join(os.path.dirname(__file__), 'viewEventAttendees.html')
