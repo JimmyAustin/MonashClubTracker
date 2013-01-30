@@ -1,15 +1,10 @@
-import cgi
 import datetime
-import urllib
-import wsgiref.handlers
 import logging
-import re
-
+import webapp2
 from google.appengine.ext import db
 from google.appengine.api import users
-from google.appengine.ext import webapp
-from google.appengine.ext.webapp.util import run_wsgi_app
-
+from google.appengine.api import memcache
+import re
 import os
 from google.appengine.ext.webapp import template
 
@@ -90,7 +85,7 @@ def userPermissions_key(person_name=None):
   
 #Security: Unsecured. Accessible to all
   
-class registerPerson(webapp.RequestHandler):
+class registerPerson(webapp2.RequestHandler):
 
     def get(self):
 			error = self.request.get('error')
@@ -113,7 +108,7 @@ class registerPerson(webapp.RequestHandler):
 
 #Security: Unsecured. Accessible to all
 			
-class registerPerson_Submit(webapp.RequestHandler):
+class registerPerson_Submit(webapp2.RequestHandler):
   def post(self):
     # We set the same parent key on the 'Greeting' to ensure each greeting is in
     # the same entity group. Queries across the single entity group will be
@@ -153,7 +148,7 @@ class registerPerson_Submit(webapp.RequestHandler):
 			match = False
 			persons = db.GqlQuery("SELECT * "
 							"FROM Person "
-							"WHERE ANCESTOR IS :1 AND studentID = :2 ",
+							"WHERE ANCESTOR IS :1 AND studentID = :2 LIMIT 1",
 							person_key('default_person'), studentID)
 			for people in persons:
 				error = '4'
@@ -197,7 +192,7 @@ class registerPerson_Submit(webapp.RequestHandler):
 
 #Security: Restricted to only admins.
 	
-class addClub(webapp.RequestHandler):
+class addClub(webapp2.RequestHandler):
 	def get(self):
 		if users.is_current_user_admin() == False:
 			self.redirect('/')
@@ -217,7 +212,7 @@ class addClub(webapp.RequestHandler):
 
 #Security: Restricted to only admins.
 			
-class addClub_Submit(webapp.RequestHandler):
+class addClub_Submit(webapp2.RequestHandler):
 	def post(self):
     # We set the same parent key on the 'Greeting' to ensure each greeting is in
     # the same entity group. Queries across the single entity group will be
@@ -245,34 +240,43 @@ class addClub_Submit(webapp.RequestHandler):
 		if error == '':
 			error = "0"
 		
-			highestNumber = 0
+			clubKey = get_primaryKey()
 		
-			clubs = db.GqlQuery("SELECT * "
-							"FROM Club "
-							"WHERE ANCESTOR IS :1 ",
-							club_key('default_club'))
-		
-			for club in clubs:
-				if highestNumber < club.primaryKey:
-					highestNumber = club.primaryKey
-		
-			highestNumber = highestNumber + 1
-		
-			newClub.primaryKey = highestNumber
+			newClub.primaryKey = clubKey
 		
 			newClub.put();
 			
 			newUserPermissions = userPermissions(parent=userPermissions_key('userPermissions'))
 			newUserPermissions.permissionLevel = 2
-			newUserPermissions.clubKey = highestNumber
+			newUserPermissions.clubKey = clubKey
 			newUserPermissions.email = clubEmail
 			newUserPermissions.put()
 		
 		self.redirect('/addClub?error=%s' % error)		
-
+	
+		def get_primaryKey():
+			data = memcache.get('clubPrimaryKey')
+			if data is not None:
+				return int(data)
+			else:
+				highestNumber = 0
+		
+				clubs = db.GqlQuery("SELECT * "
+								"FROM Club "
+								"WHERE ANCESTOR IS :1 ",
+								club_key('default_club'))
+			
+				for club in clubs:
+					if highestNumber < club.primaryKey:
+						highestNumber = club.primaryKey
+			
+				highestNumber = highestNumber + 1
+				memcache.add(str(highestNumber), 'clubPrimaryKey', 10000)
+				return highestNumber
+	
 #Security: Should show all clubs to admins, but only clubs the user is admin in if they are not. 		
 		
-class addMembers(webapp.RequestHandler):
+class addMembers(webapp2.RequestHandler):
 
     def get(self):
 	
@@ -314,7 +318,7 @@ class addMembers(webapp.RequestHandler):
 		path = os.path.join(os.path.dirname(__file__), 'addMember.html')
 		self.response.out.write(template.render(path, template_values))			
 	
-class addMembers_Submit(webapp.RequestHandler):
+class addMembers_Submit(webapp2.RequestHandler):
   def post(self):
     # We set the same parent key on the 'Greeting' to ensure each greeting is in
     # the same entity group. Queries across the single entity group will be
@@ -345,12 +349,11 @@ class addMembers_Submit(webapp.RequestHandler):
 			if studentID:
 				persons = db.GqlQuery("SELECT * "
 								"FROM Person "
-								"WHERE studentID = :1",
+								"WHERE studentID = :1 LIMIT 1",
 								studentID)
-				match = False
-				for Person in persons:
-					match = True
-				if match == False:
+				person = persons.get()
+				
+				if person is None:
 					error = '3'
 				permissionLevel = securityManager.getLevelOfAuthenticationForUserForClub(clubPrimaryKey)
 				if permissionLevel == 0:
@@ -385,7 +388,7 @@ class addMembers_Submit(webapp.RequestHandler):
 	
 	self.redirect('/addMembers?error=%s' % error)
 
-class addMSACard(webapp.RequestHandler):
+class addMSACard(webapp2.RequestHandler):
 
     def get(self):
 			if users.is_current_user_admin() == False:
@@ -411,7 +414,7 @@ class addMSACard(webapp.RequestHandler):
 			path = os.path.join(os.path.dirname(__file__), 'addMSACard.html')
 			self.response.out.write(template.render(path, template_values))			
 	
-class addMSACard_Submit(webapp.RequestHandler):
+class addMSACard_Submit(webapp2.RequestHandler):
   def post(self):
     # We set the same parent key on the 'Greeting' to ensure each greeting is in
     # the same entity group. Queries across the single entity group will be
@@ -481,7 +484,7 @@ class addMSACard_Submit(webapp.RequestHandler):
 	self.redirect('/addMSACard?error=%s' % error)	
 	
 	
-class index(webapp.RequestHandler):
+class index(webapp2.RequestHandler):
 
     def get(self):
 			user = users.get_current_user()
@@ -587,7 +590,7 @@ class index(webapp.RequestHandler):
 			path = os.path.join(os.path.dirname(__file__), 'index.html')
 			self.response.out.write(template.render(path, template_values))		
 
-class viewClubs(webapp.RequestHandler):
+class viewClubs(webapp2.RequestHandler):
 	def get(self):
 		masterString = ''	
 
@@ -608,7 +611,7 @@ class viewClubs(webapp.RequestHandler):
 
 	
 		
-class viewClubMembers(webapp.RequestHandler):
+class viewClubMembers(webapp2.RequestHandler):
 	def post(self):
 	
 		masterString = ''	
@@ -640,12 +643,10 @@ class viewClubMembers(webapp.RequestHandler):
 				self.redirect('/')
 			
 			clubs = db.GqlQuery("SELECT * "
-                            "FROM Club ")
+                            "FROM Club WHERE primaryKey = :1", clubKey)
 			
-			for club in clubs:
-				if club.primaryKey == clubKey:
-					nameOfClub = club.name
-							
+			nameOfClub = clubs.get().name
+								
 		template_values = {
 		}
 		
@@ -699,7 +700,7 @@ class viewClubMembers(webapp.RequestHandler):
 	def get(self):
 		self.post()
 
-class selectClubToView(webapp.RequestHandler):
+class selectClubToView(webapp2.RequestHandler):
 
     def get(self):
 			clubsMasterString = ''
@@ -722,7 +723,7 @@ class selectClubToView(webapp.RequestHandler):
 			self.response.out.write(template.render(path, template_values))			
 
 			
-class selectClubPermissionsToView(webapp.RequestHandler):
+class selectClubPermissionsToView(webapp2.RequestHandler):
 
     def get(self):
 			clubsMasterString = ''
@@ -742,7 +743,7 @@ class selectClubPermissionsToView(webapp.RequestHandler):
 			path = os.path.join(os.path.dirname(__file__), 'clubPermissionSelector.html')
 			self.response.out.write(template.render(path, template_values))			
 
-class selectClubPermissionsToView_Submit(webapp.RequestHandler):
+class selectClubPermissionsToView_Submit(webapp2.RequestHandler):
 	def post(self):
 	
 		masterString = ''	
@@ -804,7 +805,7 @@ class selectClubPermissionsToView_Submit(webapp.RequestHandler):
 	def get(self):
 		self.post()			
 
-class addPersonnelToClub(webapp.RequestHandler):
+class addPersonnelToClub(webapp2.RequestHandler):
 
     def get(self):
 	
@@ -847,7 +848,7 @@ class addPersonnelToClub(webapp.RequestHandler):
 		path = os.path.join(os.path.dirname(__file__), 'addPersonnel.html')
 		self.response.out.write(template.render(path, template_values))			
 	
-class addPersonnelToClub_Submit(webapp.RequestHandler):
+class addPersonnelToClub_Submit(webapp2.RequestHandler):
   def post(self):
     # We set the same parent key on the 'Greeting' to ensure each greeting is in
     # the same entity group. Queries across the single entity group will be
@@ -894,7 +895,7 @@ class addPersonnelToClub_Submit(webapp.RequestHandler):
 	self.redirect('/addPersonnelToClub?error=%s' % error)
 
 		
-class addEvent(webapp.RequestHandler):
+class addEvent(webapp2.RequestHandler):
 	def get(self):
 	
 			
@@ -924,7 +925,7 @@ class addEvent(webapp.RequestHandler):
 			path = os.path.join(os.path.dirname(__file__), 'addEvent.html')
 			self.response.out.write(template.render(path, template_values))	
 		
-class addEvent_Submit(webapp.RequestHandler):
+class addEvent_Submit(webapp2.RequestHandler):
   def post(self):
     # We set the same parent key on the 'Greeting' to ensure each greeting is in
     # the same entity group. Queries across the single entity group will be
@@ -998,7 +999,7 @@ class addEvent_Submit(webapp.RequestHandler):
 		
 	self.redirect('/addEvent?error=%s' % error)	
 
-class viewEvents(webapp.RequestHandler):
+class viewEvents(webapp2.RequestHandler):
 	def get(self):
 	
 		if users.is_current_user_admin() == False:
@@ -1036,7 +1037,7 @@ class viewEvents(webapp.RequestHandler):
 		self.response.out.write(template.render(path, template_values))	
 	
 	
-class addMembersToEvent(webapp.RequestHandler):
+class addMembersToEvent(webapp2.RequestHandler):
 
     def get(self):
 			error = self.request.get('error')
@@ -1089,7 +1090,7 @@ class addMembersToEvent(webapp.RequestHandler):
 			path = os.path.join(os.path.dirname(__file__), 'addToEvent.html')
 			self.response.out.write(template.render(path, template_values))			
 	
-class addMembersToEvent_Submit(webapp.RequestHandler):
+class addMembersToEvent_Submit(webapp2.RequestHandler):
   def post(self):
 	error = ''
 	try:
@@ -1159,7 +1160,7 @@ class addMembersToEvent_Submit(webapp.RequestHandler):
 	
 	self.redirect('/addMembersToEvent?error=%s' % error)	
 	
-class viewEventMembers(webapp.RequestHandler):
+class viewEventMembers(webapp2.RequestHandler):
 	def post(self):
 
 		masterString = ''	
@@ -1262,7 +1263,7 @@ class viewEventMembers(webapp.RequestHandler):
 	def get(self):
 		self.response.out.write('Error, attempted to get. Go back and try again.')
 
-class selectEventToView(webapp.RequestHandler):
+class selectEventToView(webapp2.RequestHandler):
 
     def get(self):
 			eventsMasterString = ''
@@ -1364,7 +1365,9 @@ class securityManager():
 	def getClubsUserIsPersonnelOf():
 		return securityManager.getClubsWhereUserHasPermissionLevelsOf(1)
 
-application = webapp.WSGIApplication(
+		
+logging.info('Run 1')		
+app = webapp2.WSGIApplication(
                                      [('/',index),
 									  ('/register', registerPerson),
 									  ('/submit', registerPerson_Submit),
@@ -1396,9 +1399,9 @@ application = webapp.WSGIApplication(
 									  ('/selectEventToView',selectEventToView)
 									  ],
                                      debug=True)
+#
+#def main():
+#    run_wsgi_app(application)
 
-def main():
-    run_wsgi_app(application)
-
-if __name__ == "__main__":
-    main()
+#if __name__ == "__main__":
+#    main()

@@ -1,0 +1,1 @@
+-Made phone number not necessary for registering
