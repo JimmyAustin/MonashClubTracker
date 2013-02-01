@@ -52,76 +52,88 @@
           <br>
 		{% if addNewPerson %}
           <a class="title  imgScanned click" href="/register">
-            Add new person.
-          </a>
+            Add new person
+          </a> - Register a new person in the system.
           <br>
 		{% endif %}
-		{% if addMSACard %}
-		  <a class="title  imgScanned click" href="/addMSACard">
-            Add MSA Card To Person
-          </a>
-          <br>
-		{% endif %}
-		{% if addClub %}
-          <a class="title  imgScanned click" href="/addClub">
-            Add Club
-          </a>
-          <br>
-		{% endif %}
+		
+
 		{% if addMemberToClub %}
           <a class="title  imgScanned click" href="/addMembers">
             Add Member to club
-          </a>
+          </a> - Add a person already into a system to a club.
+          <br>
+		{% endif %}
+		{% if addPeopleToEvents %}
+          <a class="title  imgScanned click" href="/addMembersToEvent">
+            Add People To Event
+          </a> - Add people to a event.
+		  <br>
+		{% endif %}
+		{% if viewClubs %}
+          <a class="title  imgScanned click" href="/viewClubs">
+            View Club List
+          </a> - View a list of all clubs.
+		  <br>
+		{% endif %}
+		<br>
+		{% if secretaryRights %}
+		Secretary Only:
+		{% endif %}
+		<br>
+		{% if addPersonnelToClub %}
+          <a class="title  imgScanned click" href="/addPersonnelToClub">
+            Add Personnel To Club
+          </a> - Add people to the club so that they can add people to the club as well as events. They must have a google account.
           <br>
 		{% endif %}
 		{% if viewClubPermissions %}
           <a class="title  imgScanned click" href="/selectClubPermissionsToView">
             View Permissions For Club
-          </a>
+          </a> - View everyone who has access to the clubs system. 
           <br>
-		{% endif %}
-		{% if addPersonnelToClub %}
-          <a class="title  imgScanned click" href="/addPersonnelToClub">
-            Add Personnel To Club
-          </a>
-          <br>
-		{% endif %}
-		{% if viewClubs %}
-          <a class="title  imgScanned click" href="/viewClubs">
-            View Club List
-          </a>
-		  <br>
 		{% endif %}
 		{% if viewClubMembers %}
           <a class="title  imgScanned click" href="/selectClubToView">
             View Club Members
-          </a>
+          </a> - View everyone in the club.
+		  <br>
 		{% endif %}
-		  <br>
-		  <br>
 		{% if addEvent %}
           <a class="title  imgScanned click" href="/addEvent">
             Add Event
-          </a>
+          </a> - Create a new event
 		  <br>
 		{% endif %}
-		{% if addPeopleToEvents %}
-          <a class="title  imgScanned click" href="/addMembersToEvent">
-            Add People To Event
-          </a>
-		  <br>
-		{% endif %}
-		{% if viewAllEvents %}
-          <a class="title  imgScanned click" href="/viewEvents">
-            View All Events
-          </a>
-		  <br>
-		{% endif %}
+
 		{% if viewEventAttendees %}
           <a class="title  imgScanned click" href="/selectEventToView">
             View Event Attendees
-          </a>
+          </a> - View the people who have signed in at a event.
 		  <br>
+		{% endif %}
+		<br>
+		{% if adminRights %}
+		Admin Only:<br>
+		{% endif %}
+
+		{% if viewAllEvents %}
+          <a class="title  imgScanned click" href="/viewEvents">
+            View All Events
+          </a> - View a list of all events.
+		  <br>
+		{% endif %}
+		{% if addMSACard %}
+		  <a class="title  imgScanned click" href="/addMSACard">
+            Add MSA Card To Person
+          </a> - Add a MSA card to a specific person.
+          <br>
+		{% endif %}
+		{% if addClub %}
+          <a class="title  imgScanned click" href="/addClub">
+            Add Club
+          </a> - Create a new club.
+          <br>
 		{% endif %}
         </p>
       </div>

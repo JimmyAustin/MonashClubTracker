@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+{% autoescape off%}
 <html lang="en">
   
   <head>
@@ -60,11 +61,23 @@
         </label>
         <input name="studentid" type="" id="studentid">
       </div>
+	  
+	  <div class="control-group">
+        <label for="memberType">
+          Member Type - If you don't understand what this means, <a class="title  imgScanned click" href="/explanation"> click here. </a>
+        </label>
+        <select name="memberType" id="memberType">
+			<option value="0">Ordinary/Clayton students</option>
+			<option value="1">Associate/Non-clayton students</option>
+        </select>
+      </div>
+	  
+	  
 	  <div class="control-group">
         <label for="year">
           Year
         </label>
-        <input name="year" type="" id="year" value="2013">
+        <input name="year" type="" id="year" value="{{ year }}" readonly="readonly">
       </div>
 	  <div><input type="submit" value="Submit"></div>
 	  </form>
@@ -76,3 +89,4 @@
   </body>
 
 </html>
+{% endautoescape %}
