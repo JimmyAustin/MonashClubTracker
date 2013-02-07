@@ -55,13 +55,7 @@
 			{{ clubs }}
         </select>
       </div>
-      <div class="control-group">
-        <label for="studentid">
-          Student ID
-        </label>
-        <input name="studentid" type="" id="studentid">
-      </div>
-	  
+
 	  <div class="control-group">
         <label for="memberType">
           Member Type - If you don't understand what this means, <a class="title  imgScanned click" href="/explanation"> click here. </a>
@@ -71,7 +65,19 @@
 			<option value="1">Associate/Non-clayton students</option>
         </select>
       </div>
-	  
+	  <div class="control-group">
+        <label for="studentid">
+          Has MSA card?
+        </label>
+        <input type="radio" name="msacardstatus" value="YES" checked=Yes> Has a MSA card<br>
+		<input type="radio" name="msacardstatus" value="NO"> Doesn't have a MSA card
+      </div>
+	  <div class="control-group">
+        <label for="studentid">
+          Student ID
+        </label>
+        <input name="studentid" type="" id="studentid">
+      </div>
 	  
 	  <div class="control-group">
         <label for="year">

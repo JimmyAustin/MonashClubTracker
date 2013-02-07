@@ -87,6 +87,12 @@
           </a> - Add people to the club so that they can add people to the club as well as events. They must have a google account.
           <br>
 		{% endif %}
+		{% if deleteFromClub %}
+		  <a class="title  imgScanned click" href="/deleteMember">
+            Remove Person From Club
+          </a> - Removes the person from a club for a specific year.
+          <br>
+		{% endif %}
 		{% if viewClubPermissions %}
           <a class="title  imgScanned click" href="/selectClubPermissionsToView">
             View Permissions For Club
@@ -127,6 +133,12 @@
 		  <a class="title  imgScanned click" href="/addMSACard">
             Add MSA Card To Person
           </a> - Add a MSA card to a specific person.
+          <br>
+		{% endif %}
+		{% if deletePersonFromSystem %}
+		  <a class="title  imgScanned click" href="/deletePerson">
+            Delete Person
+          </a> - Compeltely deletes the user from the system. No coming back from this.
           <br>
 		{% endif %}
 		{% if addClub %}

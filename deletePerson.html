@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 {% autoescape off%}
-
 <html lang="en">
   
   <head>
@@ -17,7 +16,7 @@
       to the bottom of the topbar */ }
     </style>
     <link href="assets/css/bootstrap-responsive.css" rel="stylesheet">
-    
+
     <style>
     </style>
   </head>
@@ -27,26 +26,39 @@
       <div class="navbar-inner">
         <div class="container">
           <a class="brand" href="/">
-            Monash Club Registration
+              Monash Club Registration
           </a>
           <ul class="nav">
           </ul>
         </div>
       </div>
     </div>
-	
-	
-	
     <div class="container">
-	<img src="/assets/img/newCSLogo1000Grey.png" width="350" border="0">
       <div>
         <h1>
-		{{ nameOfClub }}
+          Delete Person
         </h1>
+		{% if error %}
         <p>
-		{{ table }}
-        </p>
+			<font color="red">
+				{{ error }}
+			</font>
+		</p>
+		{% endif %}
       </div>
+	  <form action="/deletePerson_Submit?%s" method="post">
+
+		There is no coming back from this. This will permanently delete all trace of event membership, club membership, and all records. This is a irreversible operation.
+	  
+	
+      <div class="control-group">
+        <label for="studentid">
+          Student ID
+        </label>
+        <input name="studentid" type="" id="studentid">
+      </div>
+	  <div><input type="submit" value="Submit"></div>
+	  </form>
     </div>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js">
     </script>

@@ -151,6 +151,7 @@ class registerPerson_Submit(webapp2.RequestHandler):
 		error = '1'
 	try:		
 		studentID = self.request.get('studentid')
+		studentID = securityManager.trimStudentID(studentID)
 		stringLength = studentID.__len__()
 		if stringLength > 7:
 			studentID = int(studentID[:8])
@@ -384,6 +385,13 @@ class addMembers_Submit(webapp2.RequestHandler):
 				permissionLevel = securityManager.getLevelOfAuthenticationForUserForClub(clubPrimaryKey)
 				if permissionLevel == 0:
 					error = '5'
+					
+				msaCardStatus = self.request.get('msacardstatus')
+				
+				if msaCardStatus == 'YES':
+					securityManager.addMSACardToStudent(studentID)
+						
+					
 			else:
 				error = '1'
 		except:
@@ -414,6 +422,241 @@ class addMembers_Submit(webapp2.RequestHandler):
 	
 	self.redirect('/addMembers?error=%s' % error)
 
+class deleteMember(webapp2.RequestHandler):
+
+    def get(self):
+	
+		clubs = []
+		
+		clubsMasterString = ''
+		
+		clubs = securityManager.getClubsUserIsAdminOf()
+		
+		for Club in clubs:
+				clubsMasterString = clubsMasterString + '<option value="' + str(Club.primaryKey) + '">' + Club.name + '</option>'				
+		
+		if clubsMasterString == '':
+			self.redirect('/')
+		
+		error = self.request.get('error')
+		if error == '0':
+			error = 'Success!'
+		elif error == '1':
+			error = 'Looks like you missed something'
+		elif error == '2':
+			error = 'Student ID needs to be a number'
+		elif error == '3':
+			error = 'Student ID match not found'
+		elif error == '4':
+			error = 'Match already found'
+		elif error == '5':
+			error = 'Permission not found'
+		elif error == '6':
+			error = 'Student ID malformed.'
+		elif error == '7':
+			error = 'Membership not found'
+		year = str(datetime.datetime.now().year)
+			
+		template_values = {
+			'error': error,
+			'clubs': clubsMasterString,
+			'year' : year
+		}
+		
+		
+		path = os.path.join(os.path.dirname(__file__), 'removeMember.html')
+		self.response.out.write(template.render(path, template_values))			
+	
+class deleteMember_Submit(webapp2.RequestHandler):
+  def post(self):
+    # We set the same parent key on the 'Greeting' to ensure each greeting is in
+    # the same entity group. Queries across the single entity group will be
+    # consistent. However, the write rate to a single entity group should
+    # be limited to ~1/second.
+	error = ''
+	
+	year = datetime.datetime.now().year
+
+	try:
+		studentID = self.request.get('studentid')
+		logging.info('1')
+
+		logging.info(str(studentID))
+
+		stringLength = studentID.__len__()
+		if stringLength > 7:
+			studentID = int(studentID[:8])
+			logging.info(studentID)
+		else:
+			error = '6'
+	except:
+		
+		error = '2'
+	
+	clubPrimaryKey = self.request.get('clubinput')
+
+	if clubPrimaryKey:
+		clubPrimaryKey = int(clubPrimaryKey)
+	else:
+		error = '1' 
+	
+	if error == '':
+		try:
+			if studentID:
+				persons = db.GqlQuery("SELECT * "
+								"FROM Person "
+								"WHERE studentID = :1 LIMIT 1",
+								studentID)
+				person = persons.get()
+				
+				if person is None:
+					error = '3'
+				permissionLevel = securityManager.getLevelOfAuthenticationForUserForClub(clubPrimaryKey)
+				if permissionLevel == 0:
+					error = '5'
+			else:
+				error = '1'
+		except:
+			error = '4'
+	
+	if error == '':
+	#Check if it already exists.
+				
+		clubMemberships = db.GqlQuery("SELECT * "
+								"FROM PersonClubStatus "
+								"WHERE studentID = :1 AND year = :2 AND clubKey = :3",
+								studentID,year, clubPrimaryKey)
+		
+		for person in clubMemberships:
+			person.delete()
+			error = '0'
+	
+	if error == '':
+		error = '7'
+	
+	self.redirect('/deleteMember?error=%s' % error)
+	
+class deletePerson(webapp2.RequestHandler):
+
+    def get(self):
+	
+		clubs = []
+		
+		clubsMasterString = ''
+		
+		clubs = securityManager.getClubsUserIsAdminOf()
+		
+		for Club in clubs:
+				clubsMasterString = clubsMasterString + '<option value="' + str(Club.primaryKey) + '">' + Club.name + '</option>'				
+		
+		if clubsMasterString == '':
+			self.redirect('/')
+		
+		error = self.request.get('error')
+		if error == '0':
+			error = 'Success!'
+		elif error == '1':
+			error = 'Looks like you missed something'
+		elif error == '2':
+			error = 'Student ID needs to be a number'
+		elif error == '3':
+			error = 'Student ID match not found'
+		elif error == '4':
+			error = 'Match already found'
+		elif error == '5':
+			error = 'Permission not found'
+		elif error == '6':
+			error = 'Student ID malformed.'
+		elif error == '7':
+			error = 'Membership not found'
+		year = str(datetime.datetime.now().year)
+			
+		template_values = {
+			'error': error,
+			'clubs': clubsMasterString,
+			'year' : year
+		}
+		
+		
+		path = os.path.join(os.path.dirname(__file__), 'deletePerson.html')
+		self.response.out.write(template.render(path, template_values))			
+	
+class deletePerson_Submit(webapp2.RequestHandler):
+  def post(self):
+    # We set the same parent key on the 'Greeting' to ensure each greeting is in
+    # the same entity group. Queries across the single entity group will be
+    # consistent. However, the write rate to a single entity group should
+    # be limited to ~1/second.
+	error = ''
+	
+	year = datetime.datetime.now().year
+	if users.is_current_user_admin() == False:
+		self.redirect('/')
+	
+	try:
+		studentID = self.request.get('studentid')
+		logging.info('1')
+
+		logging.info(str(studentID))
+
+		stringLength = studentID.__len__()
+		if stringLength > 7:
+			studentID = int(studentID[:8])
+			logging.info(studentID)
+		else:
+			error = '6'
+	except:
+		
+		error = '2'
+	
+
+	
+	if error == '':
+		try:
+			if studentID:
+				persons = db.GqlQuery("SELECT * "
+								"FROM Person "
+								"WHERE studentID = :1 LIMIT 1",
+								studentID)
+				person = persons.get()
+				
+				if person is None:
+					error = '3'
+				else:
+					person.delete()
+				
+			else:
+				error = '1'
+		except:
+			error = '4'
+	
+	if error == '':
+	#Check if it already exists.
+				
+		clubMemberships = db.GqlQuery("SELECT * "
+								"FROM PersonClubStatus "
+								"WHERE studentID = :1",
+								studentID)
+		
+		for person in clubMemberships:
+			person.delete()
+			error = '0'
+			
+		clubMemberships = db.GqlQuery("SELECT * "
+								"FROM PersonEventStatus "
+								"WHERE studentID = :1",
+								studentID)
+		for person in clubMemberships:
+			person.delete()
+			error = '0'	
+		
+	if error == '':
+		error = '7'
+	
+	self.redirect('/deletePerson?error=%s' % error)
+
+	
+	
 class addMSACard(webapp2.RequestHandler):
 
     def get(self):
@@ -462,51 +705,7 @@ class addMSACard_Submit(webapp2.RequestHandler):
 		error = '2'
 		
 	if error == '':
-		try:
-			if studentID:
-				persons = db.GqlQuery("SELECT * "
-								"FROM Person "
-								"WHERE studentID = :1",
-								studentID)
-				match = False
-				for Person in persons:
-					match = True
-				if match:
-					studentID = studentID
-				else:
-					error = '3'
-					
-
-					
-			else:
-				error = '1'
-		except:
-			error = '4'
-			
-	if error == '':
-		#Check if it already exists.
-				
-		MSAMemberships = db.GqlQuery("SELECT * "
-								"FROM PersonClubStatus "
-								"WHERE studentID = :1 AND year = :2 AND clubKey = 0",
-								studentID,year)
-		
-		for person in MSAMemberships:
-			error = '4'
-		
-	
-	if error == '':
-		
-		newClubStatus = PersonClubStatus(parent=personClubStatus_key('defaultkey'))
-		
-		newClubStatus.studentID = studentID
-		newClubStatus.year = year
-		newClubStatus.clubKey = 0
-		
-		newClubStatus.put();
-		error = '0'
-		
-	
+		error = securityManager.addMSACardToStudent(studentID)
 	self.redirect('/addMSACard?error=%s' % error)	
 	
 	
@@ -528,6 +727,9 @@ class index(webapp2.RequestHandler):
 			addPeopleToEvents = False
 			viewAllEvents = False
 			viewEventAttendees = False
+			deleteFromClub = False
+			deletePersonFromSystem = False
+			
 			
 			secretaryRights = False
 			adminRights = False
@@ -553,6 +755,9 @@ class index(webapp2.RequestHandler):
 					viewAllEvents = True
 					viewEventAttendees = True	
 					
+					deleteFromClub = True
+					deletePersonFromSystem = True
+			
 					secretaryRights = True
 					adminRights = True
 					
@@ -600,6 +805,9 @@ class index(webapp2.RequestHandler):
 						viewAllEvents = False
 						viewEventAttendees = True	
 						secretaryRights = True
+						
+						deleteFromClub = True
+						deletePersonFromSystem = False
 
 			else:
 				loginMessage = 'You do not appear to be logged in. <a href="%s">Click here to login.</a> You do not have to be logged in to perform some actions.' % users.create_login_url(self.request.uri)
@@ -620,7 +828,9 @@ class index(webapp2.RequestHandler):
 				'viewAllEvents'			: viewAllEvents,
 				'viewEventAttendees'	: viewEventAttendees,
 				'adminRights'			: adminRights,
-				'secretaryRights'   	: secretaryRights
+				'secretaryRights'   	: secretaryRights,
+				'deleteFromClub'		: deleteFromClub,
+				'deletePersonFromSystem': deletePersonFromSystem
 			}
 			
 			path = os.path.join(os.path.dirname(__file__), 'index.html')
@@ -670,7 +880,7 @@ class viewClubMembers(webapp2.RequestHandler):
 		nameOfClub = ''
 		
 		if clubKey == 0:
-			if users.is_current_user_admin() == False:
+			if users.is_current_user_admin() == True:
 				nameOfClub = 'MSA Cards'
 			else:
 				self.redirect('/')
@@ -718,14 +928,16 @@ class viewClubMembers(webapp2.RequestHandler):
 					
 					MSACardHolderAtSignup = 'N'
 					MSACardHolderAtEndOfThatYear = 'N'
-					
-					memberType = int(membership.memberType)
-					
-					if memberType == 0:
-						memberType = 'Ordinary'
+					memberType = membership.memberType
+					if memberType:
+						memberType = int(membership.memberType)
+						
+						if memberType == 0:
+							memberType = 'Ordinary'
+						else:
+							memberType = 'Associate'
 					else:
-						memberType = 'Associate'
-					
+						memberType = 'N/A'
 					
 					msaMemberships = db.GqlQuery("SELECT * FROM PersonClubStatus WHERE clubKey = 0 AND year = :1",year)
 					for memberships in msaMemberships:
@@ -735,7 +947,7 @@ class viewClubMembers(webapp2.RequestHandler):
 					if public:
 						masterString = masterString + '<tr><td>' + name + '</td><td>' + str(studentID)[5:8] + '</td>'
 					else:		
-						masterString = masterString + '<tr><td>' + name + '</td><td>' + str(studentID) + '</td><td>' + MSACardHolderAtSignup + '</td><td>' + memberType + '</td><td>' + address + '</td><td>' + str(phoneNumber) + '</td><td>' + monashEmail + '</td><td>' + email + '</td><td>' + str(day) + '/' + str(month) + '/' + str(year) + '</td></tr>'
+						masterString = masterString + '<tr><td>' + name + '</td><td>' + str(studentID) + '</td><td>' + MSACardHolderAtEndOfThatYear + '</td><td>' + memberType + '</td><td>' + address + '</td><td>' + str(phoneNumber) + '</td><td>' + monashEmail + '</td><td>' + email + '</td><td>' + str(day) + '/' + str(month) + '/' + str(year) + '</td></tr>'
 
 			masterString = masterString + '</table>'
 			template_values = {
@@ -1163,6 +1375,12 @@ class addMembersToEvent_Submit(webapp2.RequestHandler):
 					match = True
 				if match == False:
 					error = '3'
+				
+				msaCardStatus = self.request.get('msacardstatus')
+				
+				if msaCardStatus == 'YES':
+					securityManager.addMSACardToStudent(studentID)
+					
 			else:
 				error = '1'
 		except:
@@ -1440,7 +1658,70 @@ class securityManager():
 	@staticmethod			
 	def getClubsUserIsPersonnelOf():
 		return securityManager.getClubsWhereUserHasPermissionLevelsOf(1)
+		
+	@staticmethod
+	def trimStudentID(studentID):
+		studentID = str(studentID)
+		stringLength = studentID.__len__()
+		if stringLength > 7:
+			studentID = int(studentID[:8])
+		return studentID
+	@staticmethod
+	def addMSACardToStudent(studentID):
+		error = ''
+		
+		now = datetime.datetime.now()
+		year = now.year
+		
+		try:
+			if studentID:
+			
+				studentID = securityManager.trimStudentID(studentID)
+			
+				persons = db.GqlQuery("SELECT * "
+								"FROM Person "
+								"WHERE studentID = :1",
+								studentID)
+				match = False
+				for Person in persons:
+					match = True
+				if match:
+					studentID = studentID
+				else:
+					error = '3'
+					
 
+					
+			else:
+				error = '1'
+		except:
+			error = '4'
+			
+		if error == '':
+		#Check if it already exists.
+				
+			MSAMemberships = db.GqlQuery("SELECT * "
+								"FROM PersonClubStatus "
+								"WHERE studentID = :1 AND year = :2 AND clubKey = 0",
+								studentID,year)
+		
+			for person in MSAMemberships:
+				error = '4'
+		
+	
+		if error == '':
+		
+			newClubStatus = PersonClubStatus(parent=personClubStatus_key('defaultkey'))
+			
+			newClubStatus.studentID = int(studentID)
+			newClubStatus.year = year
+			newClubStatus.clubKey = 0
+			
+			newClubStatus.put();
+			error = '0'
+			
+		return error
+		
 app = webapp2.WSGIApplication(
                                      [('/',index),
 									  ('/register', registerPerson),
@@ -1471,6 +1752,12 @@ app = webapp2.WSGIApplication(
 									  ('/viewEvents', viewEvents),
 									  ('/eventAttendees',viewEventMembers),
 									  ('/selectEventToView',selectEventToView),
+									  
+									  ('/deleteMember',deleteMember),
+									  ('/deleteMember_Submit',deleteMember_Submit),
+
+									  ('/deletePerson',deletePerson),
+									  ('/deletePerson_Submit',deletePerson_Submit),
 									  
 									  ('/explanation', explanation)
 									  
