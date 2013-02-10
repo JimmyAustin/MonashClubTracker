@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+{% autoescape off%}
+
 <html lang="en">
   
   <head>
@@ -35,7 +37,7 @@
     <div class="container">
       <div>
         <h1>
-          Add Personnell
+          Add Personnel
         </h1>
 		{% if error %}
         <p>
@@ -56,7 +58,7 @@
       </div>
       <div class="control-group">
         <label for="email">
-          Email
+          Authcate
         </label>
         <input name="email" type="" id="email">
       </div>
@@ -70,3 +72,4 @@
   </body>
 
 </html>
+{% endautoescape %}

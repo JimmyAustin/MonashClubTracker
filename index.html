@@ -56,8 +56,6 @@
           </a> - Register a new person in the system.
           <br>
 		{% endif %}
-		
-
 		{% if addMemberToClub %}
           <a class="title  imgScanned click" href="/addMembers">
             Add Member to club
@@ -70,6 +68,12 @@
           </a> - Add people to a event.
 		  <br>
 		{% endif %}
+		{% if modifyDetails %}
+          <a class="title  imgScanned click" href="/modifyDetails">
+            Modify Details
+          </a> - Change the details for your own account.
+		  <br>
+		{% endif %}
 		{% if viewClubs %}
           <a class="title  imgScanned click" href="/viewClubs">
             View Club List
@@ -78,18 +82,25 @@
 		{% endif %}
 		<br>
 		{% if secretaryRights %}
-		Secretary Only:
+		<font size='5'>Secretary Only:</font>
+		<br>Herew be dragons, or atleast the threat of the secretary T&C. <br>
 		{% endif %}
 		<br>
 		{% if addPersonnelToClub %}
           <a class="title  imgScanned click" href="/addPersonnelToClub">
             Add Personnel To Club
-          </a> - Add people to the club so that they can add people to the club as well as events. They must have a google account.
+          </a> - Add people to the club so that they can add people to the club as well as events.
+          <br>
+		{% endif %}
+		{% if deleteClubPersonnel %}
+          <a class="title  imgScanned click" href="/deletePersonnelFromClub">
+            Remove Personnel From Club
+          </a> - Remove personnel so that they can no longer add people to the club or events.
           <br>
 		{% endif %}
 		{% if deleteFromClub %}
 		  <a class="title  imgScanned click" href="/deleteMember">
-            Remove Person From Club
+            Remove Member From Club
           </a> - Removes the person from a club for a specific year.
           <br>
 		{% endif %}
@@ -120,7 +131,7 @@
 		{% endif %}
 		<br>
 		{% if adminRights %}
-		Admin Only:<br>
+		<font size='5'>Admin Only: </font> <br>
 		{% endif %}
 
 		{% if viewAllEvents %}

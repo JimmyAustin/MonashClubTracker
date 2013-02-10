@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-{% autoescape off %}
+{% autoescape off%}
 
 <html lang="en">
   
@@ -37,38 +37,30 @@
     <div class="container">
       <div>
         <h1>
-          Add Member To Event
+          Remove Personnel
         </h1>
-			  {% if error %}
+		{% if error %}
         <p>
 			<font color="red">
 				{{ error }}
 			</font>
 		</p>
-      {% endif %}
+		{% endif %}
       </div>
-	  <form action="/addMembersToEvent_Submit?%s" method="post">
+	  <form action="/deletePersonnelFromClub_Submit?%s" method="post">
       <div class="control-group">
         <label for="selectinput1">
-          Event
+          Club
         </label>
-        <select name="eventinput" id="eventinput">
-			{{ events }}
+        <select name="clubinput" id="clubinput">
+			{{ clubs }}
         </select>
       </div>
-	  <div class="control-group">
-        <label for="studentid">
-          Has MSA card?
-        </label>
-        <input type="radio" name="msacardstatus" value="YES"> Has a MSA card<br>
-		<input type="radio" name="msacardstatus" value="NO" checked=Yes> Doesn't have a MSA card
-      </div>
-	  
       <div class="control-group">
-        <label for="studentid">
-          Student ID
+        <label for="email">
+          Authcate
         </label>
-        <input name="studentid" type="" id="studentid">
+        <input name="email" type="" id="email">
       </div>
 	  <div><input type="submit" value="Submit"></div>
 	  </form>

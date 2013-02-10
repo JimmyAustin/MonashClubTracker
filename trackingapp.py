@@ -7,6 +7,7 @@ from google.appengine.api import memcache
 import re
 import os
 from google.appengine.ext.webapp import template
+from google.appengine.api import mail
 
 class Person(db.Model):
 
@@ -38,7 +39,8 @@ class PersonClubStatus(db.Model):
   year = db.IntegerProperty()  
   clubKey = db.IntegerProperty() 
   joiningDate = db.DateTimeProperty(auto_now_add=True)  
-  memberType = db.IntegerProperty() 
+  memberType = db.IntegerProperty()
+  addedBy = db.StringProperty()
   
   #Member Type
   # 0: Ordinary
@@ -52,7 +54,8 @@ class PersonEventStatus(db.Model):
   studentID = db.IntegerProperty()  
   eventKey = db.IntegerProperty() 
   creationDate = db.DateTimeProperty(auto_now_add=True)  
-  
+  addedBy = db.StringProperty()
+
 class Event(db.Model):
   name = db.StringProperty()  
   primaryKey = db.IntegerProperty()
@@ -70,6 +73,12 @@ class userPermissions(db.Model):
   #2 = admin
   #1 = club personel
 
+class statsLog(db.Model):
+  creationDay = db.DateTimeProperty()
+  current = db.BooleanProperty()
+  uniqueSignUpsThisDay = db.IntegerProperty()
+  uniqueSignUps
+  
 def person_key(person_name=None):
   return db.Key.from_path('person', 'person' or 'default_person')
  
@@ -106,6 +115,8 @@ class registerPerson(webapp2.RequestHandler):
 				error = 'Student ID already found'
 			elif error == '6':
 				error = 'Error with student ID'
+			elif error == '7':
+				error = 'You need to accept the Terms and Conditions'
 			template_values = {
 				'error': error
 			}
@@ -130,6 +141,7 @@ class registerPerson_Submit(webapp2.RequestHandler):
 	campus = self.request.get('campus')
 	address = self.request.get('address')
 	person = Person(parent=person_key('defaultkey'))
+	termsAndConditions = self.request.get('TermsAndConditions')
 
 	
 
@@ -146,36 +158,55 @@ class registerPerson_Submit(webapp2.RequestHandler):
 		error = '1'
 		
 	if authcate:
-		person.authcate = authcate
+		person.authcate = authcate.lower()
 	else:
 		error = '1'
-	try:		
-		studentID = self.request.get('studentid')
-		studentID = securityManager.trimStudentID(studentID)
-		stringLength = studentID.__len__()
-		if stringLength > 7:
-			studentID = int(studentID[:8])
-			if studentID:
-				match = False
-				persons = db.GqlQuery("SELECT * "
-								"FROM Person "
-								"WHERE ANCESTOR IS :1 AND studentID = :2 LIMIT 1",
-								person_key('default_person'), studentID)
-				for people in persons:
-					error = '4'
+	if error == '':
+		try:		
+
+			studentID = self.request.get('studentid')
+
+			studentID = str(securityManager.trimStudentID(studentID))
+
+			stringLength = studentID.__len__()
+			if stringLength > 7:
+				studentID = int(studentID[:8])
+				if studentID:
+					match = False
+					persons = db.GqlQuery("SELECT * "
+									"FROM Person "
+									"WHERE ANCESTOR IS :1 AND studentID = :2 LIMIT 1",
+									person_key('default_person'), studentID)
+					for people in persons:
+						error = '4'
 					
-				person.studentID = studentID
+					persons = db.GqlQuery("SELECT * "
+									"FROM Person "
+									"WHERE ANCESTOR IS :1 AND authcate = :2 LIMIT 1",
+									person_key('default_person'), authcate)
+									
+					for people in persons:
+						error = '4'
+
+					
+					person.studentID = studentID
+				else:
+					error = '1'
+				
 			else:
-				error = '1'
+				error = '6'
 			
-		else:
-			error = '6'
+			
+			
+		except:
+			error = '2'
+		logging.info('Terms:')
+		logging.info(termsAndConditions)
 		
-		
-		
-	except:
-		error = '2'
-		
+	if termsAndConditions != 'YES':
+		error = '7'
+
+	
 	if campus:
 		person.campus = int(campus)
 	else:
@@ -371,6 +402,8 @@ class addMembers_Submit(webapp2.RequestHandler):
 	else:
 		error = '1' 
 	
+	personName = ''
+	personEmail = ''
 	if error == '':
 		try:
 			if studentID:
@@ -382,15 +415,18 @@ class addMembers_Submit(webapp2.RequestHandler):
 				
 				if person is None:
 					error = '3'
-				permissionLevel = securityManager.getLevelOfAuthenticationForUserForClub(clubPrimaryKey)
-				if permissionLevel == 0:
-					error = '5'
-					
-				msaCardStatus = self.request.get('msacardstatus')
-				
-				if msaCardStatus == 'YES':
-					securityManager.addMSACardToStudent(studentID)
+				else:
+					personName = person.firstName + ' ' + person.lastName
+					personEmail = person.email	
+					permissionLevel = securityManager.getLevelOfAuthenticationForUserForClub(clubPrimaryKey)
+					if permissionLevel == 0:
+						error = '5'
 						
+					msaCardStatus = self.request.get('msacardstatus')
+					
+					if msaCardStatus == 'YES':
+						securityManager.addMSACardToStudent(studentID)
+							
 					
 			else:
 				error = '1'
@@ -416,7 +452,52 @@ class addMembers_Submit(webapp2.RequestHandler):
 		newClubStatus.year = year
 		newClubStatus.clubKey = int(clubPrimaryKey)
 		newClubStatus.memberType = int(self.request.get('memberType'))
+		
+		user = users.get_current_user()
+		email = user.email()
+		addedByAuthcate = email.split("@")[0]
+		
+		newClubStatus.addedBy = addedByAuthcate
+		
 		newClubStatus.put();
+		
+		clubs = db.GqlQuery("SELECT * "
+							"FROM Club "
+							"WHERE primaryKey = :1",
+							int(clubPrimaryKey))
+		
+		
+		clubName = clubs.get().name
+		now = datetime.datetime.now()
+		timestamp = now.strftime("%Y-%m-%d %H:%M %Z")
+		
+		message = mail.EmailMessage(sender="No Reply <noreply@monashclubs.org>",
+                            subject="You have been added to " + clubName)
+
+		message.to = personName + '<' + personEmail + '>'
+		message.body = '''
+			Dear {!s}:
+			
+			You have been added to the following club:
+			
+			{!s}
+
+			at
+
+			{!s}
+			
+			If this is a mistake, please forward this email to Alistair at webmaster@monashclubs.org
+
+			Thank you.
+			'''.format(personName, clubName, timestamp)
+
+		logging.info('email sent')	
+		logging.info(message.body)	
+
+		message.send()
+		
+		
+		
 		error = '0'
 		
 	
@@ -433,7 +514,7 @@ class deleteMember(webapp2.RequestHandler):
 		clubs = securityManager.getClubsUserIsAdminOf()
 		
 		for Club in clubs:
-				clubsMasterString = clubsMasterString + '<option value="' + str(Club.primaryKey) + '">' + Club.name + '</option>'				
+			clubsMasterString = clubsMasterString + '<option value="' + str(Club.primaryKey) + '">' + Club.name + '</option>'				
 		
 		if clubsMasterString == '':
 			self.redirect('/')
@@ -723,13 +804,14 @@ class index(webapp2.RequestHandler):
 			viewClubMembers = False
 			viewClubPermissions = False
 			addClubPersonnel = False
+			deleteClubPersonnel = False
 			addEvent = False
 			addPeopleToEvents = False
 			viewAllEvents = False
 			viewEventAttendees = False
 			deleteFromClub = False
 			deletePersonFromSystem = False
-			
+			modifyDetails = False
 			
 			secretaryRights = False
 			adminRights = False
@@ -738,6 +820,11 @@ class index(webapp2.RequestHandler):
 			logoutMessage = ''
 			if user:
 				logoutMessage = '<a href="%s">Click here to logout.</a>' % users.create_logout_url(self.request.uri)
+				user = users.get_current_user()
+				email = user.email()
+				domain = email.split("@")[1]
+				if domain == 'student.monash.edu':
+					modifyDetails = True
 
 				if users.is_current_user_admin(): #Checks with google app if current user is a admin. Not this doesn't check if they are a club account or not.
 					loginMessage = 'Welcome %s, you have been granted admin rights' % user.nickname()
@@ -750,6 +837,7 @@ class index(webapp2.RequestHandler):
 					viewClubMembers = True
 					viewClubPermissions = True
 					addClubPersonnel = True
+					deleteClubPersonnel = True
 					addEvent = True
 					addPeopleToEvents = True
 					viewAllEvents = True
@@ -768,7 +856,7 @@ class index(webapp2.RequestHandler):
 					memberOf = db.GqlQuery("SELECT * "
 								"FROM userPermissions "
 								"WHERE ANCESTOR IS :1 AND email = :2",
-								userPermissions_key('default_permissions'), user.email())	
+								userPermissions_key('default_permissions'), user.email().lower())	
 					
 					currentPermissionLevel = 0
 					
@@ -787,6 +875,7 @@ class index(webapp2.RequestHandler):
 						viewClubMembers = False
 						viewClubPermissions = False
 						addClubPersonnel = False
+						deleteClubPersonnel = False
 						addEvent = False
 						addPeopleToEvents = True
 						viewAllEvents = False
@@ -800,6 +889,7 @@ class index(webapp2.RequestHandler):
 						viewClubMembers = True
 						viewClubPermissions = True
 						addClubPersonnel = True
+						deleteClubPersonnel = True
 						addEvent = True
 						addPeopleToEvents = True
 						viewAllEvents = False
@@ -822,13 +912,15 @@ class index(webapp2.RequestHandler):
 				'viewClubPermissions'	: viewClubPermissions,
 				'viewClubs'				: viewClubs,
 				'viewClubMembers'		: viewClubMembers,
-				'addPersonnelToClub'	:addClubPersonnel,
+				'addPersonnelToClub'	: addClubPersonnel,		
+				'deleteClubPersonnel'	: deleteClubPersonnel,
 				'addEvent'				: addEvent,
 				'addPeopleToEvents'		: addPeopleToEvents,
 				'viewAllEvents'			: viewAllEvents,
 				'viewEventAttendees'	: viewEventAttendees,
 				'adminRights'			: adminRights,
 				'secretaryRights'   	: secretaryRights,
+				'modifyDetails'			: modifyDetails,
 				'deleteFromClub'		: deleteFromClub,
 				'deletePersonFromSystem': deletePersonFromSystem
 			}
@@ -855,8 +947,178 @@ class viewClubs(webapp2.RequestHandler):
 		path = os.path.join(os.path.dirname(__file__), 'viewClubs.html')
 		self.response.out.write(template.render(path, template_values))		
 
-	
+class modifyDetails(webapp2.RequestHandler):
+	def get(self):
+		user = users.get_current_user()
 		
+		error = self.request.get('error')
+		if error == '0':
+			error = 'Success!'
+		elif error == '1':
+			error = 'Looks like you missed something'
+		elif error == '2':
+			error = 'Student ID needs to be a number'
+		elif error == '3':
+			error = 'Your email looks invalid. Have you tried to use your monash one?'
+		elif error == '4':
+			error = 'Student ID already found'
+		elif error == '6':
+			error = 'Error with student ID'
+			
+		template_values = {
+			'error': error
+		}
+		
+		if user:
+			email = user.email()
+			domain = email.split("@")[1]
+			if domain == 'student.monash.edu':
+				logging.info(domain)
+				authcate = email.split("@")[0]
+				
+				persons = db.GqlQuery("SELECT * "
+					"FROM Person "
+					"WHERE authcate = :1",
+					authcate.lower())
+				
+				person = persons.get()
+				
+				if person:
+				
+					claytonselected = False
+					caulfieldselected = False
+					peninsulaselected = False
+					gippslandselected = False
+					berwickselected = False
+					indiaselected = False
+					africaselected = False
+					italyselected = False
+					sunwayselected = False
+					africaselected = False
+					chinaselected = False
+				
+					if person.campus == 1:
+						claytonselected = False
+					elif person.campus == 2:
+						caulfieldselected = False
+					elif person.campus == 3:					
+						peninsulaselected = False
+					elif person.campus == 4:					
+						gippslandselected = False
+					elif person.campus == 5:					
+						berwickselected = False
+					elif person.campus == 6:					
+						indiaselected = False
+					elif person.campus == 7:					
+						africaselected = False
+					elif person.campus == 8:					
+						italyselected = False
+					elif person.campus == 9:					
+						africaselected = False
+					elif person.campus == 10:					
+						chinaselected = False
+					
+					template_values = {
+						'firstname' 		: 	person.firstName,
+						'lastname'			:	person.lastName,
+						'authcate'			:	person.authcate,
+						'studentid'			:	person.studentID,
+						'email'				:	person.email,
+						'address'			:	person.address,
+						'phoneNumber'		:	person.phoneNumber,
+						'claytonselected' 	:	claytonselected,
+						'caulfieldselected' :	caulfieldselected,
+						'peninsulaselected' :	peninsulaselected,
+						'gippslandselected' :	gippslandselected,
+						'berwickselected' 	:	berwickselected,
+						'indiaselected' 	:	indiaselected,
+						'africaselected' 	:	africaselected,
+						'italyselected' 	:	italyselected,
+						'sunwayselected' 	:	sunwayselected,
+						'africaselected' 	:	africaselected,
+						'chinaselected' 	:	chinaselected,
+						
+						'error': error
+
+					}
+					
+					
+					
+
+					
+				else:
+					self.redirect('/')
+				
+			else:
+				self.redirect('/')
+		else:
+			self.redirect('/')
+			
+		path = os.path.join(os.path.dirname(__file__), 'modifyDetails.html')
+		self.response.out.write(template.render(path, template_values))		
+	
+class modifyDetails_Submit(webapp2.RequestHandler):
+	def post(self):
+
+		firstName = self.request.get('firstname')
+		lastName = self.request.get('lastname')
+		authcate = self.request.get('authcate')
+		email = self.request.get('email')
+		phoneNumber = self.request.get('phonenumber')
+		campus = self.request.get('campus')
+		address = self.request.get('address')
+		person = Person(parent=person_key('defaultkey'))
+		termsAndConditions = self.request.get('TermsAndConditions')
+
+		error = ''
+		
+		persons = db.GqlQuery("SELECT * "
+										"FROM Person "
+										"WHERE ANCESTOR IS :1 AND authcate = :2 LIMIT 1",
+										person_key('default_person'), authcate)
+		person = persons.get()
+		
+		
+		if firstName:
+			person.firstName = firstName
+		else:
+			error = '1'
+			
+		if lastName:
+			person.lastName = lastName
+		else:
+			error = '1'
+			
+		if campus:
+			person.campus = int(campus)
+		else:
+			error = '1'
+			
+		if address:
+			person.address = address
+		else:
+			error = '1'	
+			
+		if email:
+			if re.match(r"[^@]+@[^@]+\.[^@]+", email):
+				person.email = email
+			else:
+				error = '3'
+		else:
+			error = '1'
+			
+		if phoneNumber:
+			person.phoneNumber = phoneNumber
+		
+		
+		
+		if error == '':
+			error = "0"
+			person.put();	
+	
+	
+		self.redirect('/modifyDetails?error=%s' % error)	
+	
 class viewClubMembers(webapp2.RequestHandler):
 	def post(self):
 	
@@ -893,63 +1155,24 @@ class viewClubMembers(webapp2.RequestHandler):
 			
 			clubs = db.GqlQuery("SELECT * "
                             "FROM Club WHERE primaryKey = :1", clubKey)
-			
-			nameOfClub = clubs.get().name
-								
+			club = clubs.get()
+			if club:
+				nameOfClub = club.name
+
 		template_values = {
 		}
 		
 		if nameOfClub:
-			
-			clubMemberships = db.GqlQuery("SELECT * FROM PersonClubStatus WHERE clubKey = :1 AND year = :2",
-											int(clubKey),year)
 			if public:
 				masterString = '<table border="1"><th>Full Name</th><th>Student ID</th>'	
 			else:
 				masterString = '<table border="1"><th>Full Name</th><th>Student ID</th><th>MSA Member</th><th>Membertype</th><th>Address</th><th>Phone Number</th><th>Monash Email</th><th>Email</th><th>Signup Date</th>'	
 
-			for membership in clubMemberships:
-				people = db.GqlQuery("SELECT * FROM Person WHERE studentID = :1",
-											membership.studentID)
-
-				for person in people:
-					name = person.firstName + ' ' + person.lastName
-					studentID = str(person.studentID)
-					address = person.address
-					phoneNumber = 0
-					if person.phoneNumber:
-						phoneNumber = person.phoneNumber
-					monashEmail = person.authcate + '@student.monash.edu'
-					email = person.email
-					signupDate = membership.joiningDate
-					day = signupDate.day
-					month = signupDate.month
-					year = signupDate.year
-					
-					MSACardHolderAtSignup = 'N'
-					MSACardHolderAtEndOfThatYear = 'N'
-					memberType = membership.memberType
-					if memberType:
-						memberType = int(membership.memberType)
-						
-						if memberType == 0:
-							memberType = 'Ordinary'
-						else:
-							memberType = 'Associate'
-					else:
-						memberType = 'N/A'
-					
-					msaMemberships = db.GqlQuery("SELECT * FROM PersonClubStatus WHERE clubKey = 0 AND year = :1",year)
-					for memberships in msaMemberships:
-						MSACardHolderAtEndOfThatYear = 'Y'
-						if memberships.joiningDate < signupDate:
-							MSACardHolderAtSignup = 'Y'
-					if public:
-						masterString = masterString + '<tr><td>' + name + '</td><td>' + str(studentID)[5:8] + '</td>'
-					else:		
-						masterString = masterString + '<tr><td>' + name + '</td><td>' + str(studentID) + '</td><td>' + MSACardHolderAtEndOfThatYear + '</td><td>' + memberType + '</td><td>' + address + '</td><td>' + str(phoneNumber) + '</td><td>' + monashEmail + '</td><td>' + email + '</td><td>' + str(day) + '/' + str(month) + '/' + str(year) + '</td></tr>'
+			masterString = masterString + self.resultsForClubKeyAndYear(clubKey, year, 0, public)
 
 			masterString = masterString + '</table>'
+
+			
 			template_values = {
 				'nameOfClub': nameOfClub,
 				'table'		: masterString
@@ -964,6 +1187,60 @@ class viewClubMembers(webapp2.RequestHandler):
 		self.response.out.write(template.render(path, template_values))	
 	def get(self):
 		self.post()
+		
+	def resultsForClubKeyAndYear(sender,clubKey, year, offset, public):
+		masterString = ''
+		clubMemberships = db.GqlQuery("SELECT * FROM PersonClubStatus WHERE clubKey = :1 AND year = :2 OFFSET :3",
+										int(clubKey),year, int(offset))
+		membercount = 0
+		for membership in clubMemberships:
+			people = db.GqlQuery("SELECT * FROM Person WHERE studentID = :1",
+										membership.studentID)
+			membercount = membercount + 1
+			for person in people:
+				
+				name = person.firstName + ' ' + person.lastName
+				studentID = str(person.studentID)
+				address = person.address
+				phoneNumber = 0
+				if person.phoneNumber:
+					phoneNumber = person.phoneNumber
+				monashEmail = person.authcate + '@student.monash.edu'
+				email = person.email
+				signupDate = membership.joiningDate
+				day = signupDate.day
+				month = signupDate.month
+				year = signupDate.year
+				
+				MSACardHolderAtSignup = 'N'
+				MSACardHolderAtEndOfThatYear = 'N'
+				memberType = membership.memberType
+				if memberType:
+					memberType = int(membership.memberType)
+					
+					if memberType == 0:
+						memberType = 'Ordinary'
+					else:
+						memberType = 'Associate'
+				else:
+					memberType = 'N/A'
+				
+				msaMemberships = db.GqlQuery("SELECT * FROM PersonClubStatus WHERE clubKey = 0 AND year = :1",year)
+				for memberships in msaMemberships:
+					MSACardHolderAtEndOfThatYear = 'Y'
+					if memberships.joiningDate < signupDate:
+						MSACardHolderAtSignup = 'Y'
+				if public:
+					masterString = masterString + '<tr><td>' + name + '</td><td>' + str(studentID)[5:8] + '</td>'
+				else:		
+					masterString = masterString + '<tr><td>' + name + '</td><td>' + str(studentID) + '</td><td>' + MSACardHolderAtEndOfThatYear + '</td><td>' + memberType + '</td><td>' + address + '</td><td>' + str(phoneNumber) + '</td><td>' + monashEmail + '</td><td>' + email + '</td><td>' + str(day) + '/' + str(month) + '/' + str(year) + '</td></tr>'
+
+		if membercount == 1000:
+			masterstring = masterstring + resultsForClubKeyAndYear(clubKey, year, offset + 1000, public)
+
+		return masterString
+		
+		
 
 class selectClubToView(webapp2.RequestHandler):
 
@@ -1131,7 +1408,10 @@ class addPersonnelToClub_Submit(webapp2.RequestHandler):
 				newUserPermissions = userPermissions(parent=userPermissions_key('userPermissions'))
 				newUserPermissions.permissionLevel = 1
 				newUserPermissions.clubKey = clubPrimaryKey
-				newUserPermissions.email = email
+				
+				email = email + '@student.monash.edu'
+				
+				newUserPermissions.email = email.lower()
 				
 			#Check if it already exists.
 				
@@ -1159,6 +1439,94 @@ class addPersonnelToClub_Submit(webapp2.RequestHandler):
 	
 	self.redirect('/addPersonnelToClub?error=%s' % error)
 
+class deletePersonnelFromClub(webapp2.RequestHandler):
+
+    def get(self):
+	
+		clubs = []
+		
+		clubsMasterString = ''
+		
+		clubs = securityManager.getClubsUserIsAdminOf()
+
+		for Club in clubs:
+			clubsMasterString = clubsMasterString + '<option value="' + str(Club.primaryKey) + '">' + Club.name + '</option>'				
+
+		if clubsMasterString == '':
+			self.redirect('/')
+		
+		error = self.request.get('error')
+		if error == '0':
+			error = 'Success!'
+		elif error == '1':
+			error = 'Looks like you missed something'
+		elif error == '2':
+			error = 'Student ID needs to be a number'
+		elif error == '3':
+			error = 'Student ID match not found'
+		elif error == '4':
+			error = 'Unknown - 4'
+		elif error == '5':
+			error = 'Permission not found'
+		elif error == '6':
+			error = 'Personnel not found'
+
+	
+			
+		template_values = {
+			'error': error,
+			'clubs': clubsMasterString
+		}
+		
+		
+		path = os.path.join(os.path.dirname(__file__), 'removePersonnel.html')
+		self.response.out.write(template.render(path, template_values))			
+	
+class deletePersonnelFromClub_Submit(webapp2.RequestHandler):
+  def post(self):
+    # We set the same parent key on the 'Greeting' to ensure each greeting is in
+    # the same entity group. Queries across the single entity group will be
+    # consistent. However, the write rate to a single entity group should
+    # be limited to ~1/second.
+	error = ''
+		
+	clubPrimaryKey = self.request.get('clubinput')
+	email = self.request.get('email')
+		
+	if clubPrimaryKey:
+		clubPrimaryKey = int(self.request.get('clubinput'))
+		if securityManager.getLevelOfAuthenticationForUserForClub(clubPrimaryKey) == 2:
+			if email:
+				
+				email = email + '@student.monash.edu'
+				
+				email = email.lower()
+				
+			#Check if it already exists.
+				
+				userPermission = db.GqlQuery("SELECT * "
+								"FROM userPermissions "
+								"WHERE email = :1 AND clubKey = :2",
+								email, clubPrimaryKey)
+				match = False
+				for permissions in userPermission:
+					permissions.delete()
+					match = True
+					
+				if match == False:	
+					error = '6'
+
+			else:
+				error = '3'
+		else:
+			error = '5'
+	else:
+		error = '2'
+
+		
+		
+	
+	self.redirect('/deletePersonnelFromClub?error=%s' % error)
 		
 class addEvent(webapp2.RequestHandler):
 	def get(self):
@@ -1423,6 +1791,12 @@ class addMembersToEvent_Submit(webapp2.RequestHandler):
 			personEventStatus.studentID = studentID
 			personEventStatus.eventKey = eventKey
 			
+			
+			user = users.get_current_user()
+			email = user.email()
+			addedByAuthcate = email.split("@")[0]
+			
+			personEventStatus.addedBy = addedByAuthcate
 			personEventStatus.put();
 			logging.info('successfully put')
 
@@ -1606,7 +1980,7 @@ class securityManager():
 				memberOf = db.GqlQuery("SELECT * "
 								"FROM userPermissions "
 								"WHERE ANCESTOR IS :1 AND email = :2 AND clubKey = :3",
-								userPermissions_key('default_permissions'), user.email(), clubPrimaryKey)
+								userPermissions_key('default_permissions'), user.email().lower(), clubPrimaryKey)
 				for permissions in memberOf:
 					if permissions.clubKey == clubPrimaryKey:
 						return permissions.permissionLevel
@@ -1633,7 +2007,7 @@ class securityManager():
 				memberOf = db.GqlQuery("SELECT * "
 								"FROM userPermissions "
 								"WHERE ANCESTOR IS :1 AND email = :2",
-								userPermissions_key('default_permissions'), user.email())
+								userPermissions_key('default_permissions'), user.email().lower())
 								
 				for userPermissions in memberOf:
 					if userPermissions.permissionLevel >= minimumPermissionLevel:
@@ -1731,6 +2105,9 @@ app = webapp2.WSGIApplication(
 									  ('/addMembers', addMembers),
 									  ('/addMembers_Submit', addMembers_Submit),
 									  
+									  ('/modifyDetails', modifyDetails),
+									  ('/modifyDetails_Submit', modifyDetails_Submit),
+
 									  ('/addMSACard', addMSACard),
 									  ('/addMSACard_Submit', addMSACard_Submit),
 									  
@@ -1741,6 +2118,10 @@ app = webapp2.WSGIApplication(
 									  ('/addPersonnelToClub',addPersonnelToClub),
 									  ('/addPersonnelToClub_Submit',addPersonnelToClub_Submit),
 
+									  ('/deletePersonnelFromClub',deletePersonnelFromClub),
+									  ('/deletePersonnelFromClub_Submit',deletePersonnelFromClub_Submit),
+									  
+									  
 									  
 									  ('/selectClubPermissionsToView',selectClubPermissionsToView),
 									  ('/selectClubPermissionsToView_Submit',selectClubPermissionsToView_Submit),
