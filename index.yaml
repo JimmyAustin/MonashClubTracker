@@ -15,3 +15,14 @@ indexes:
   properties:
   - name: creationDate
     direction: desc
+
+- kind: Person
+  properties:
+  - name: studentID
+  - name: email
+
+- kind: PersonClubStatus
+  properties:
+  - name: clubKey
+  - name: year
+  - name: studentID

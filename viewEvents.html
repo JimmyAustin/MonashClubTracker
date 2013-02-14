@@ -40,7 +40,10 @@
         <p>
       {% if events %}
         <p>
+			{% autoescape off%}a
 			{{ events }}
+			{% endautoescape %}
+
 		</p>
       {% endif %}
         </p>

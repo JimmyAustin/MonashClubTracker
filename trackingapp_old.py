@@ -88,20 +88,20 @@ class statsLog(db.Model):
 def person_key(person_name=None):
 	return db.Key.from_path('Person', person_name or 'default_person')
  
-def personClubStatus_key(personClubStatus_name=None,year = None, clubKey = None):
-	return db.Key.from_path('PersonClubStatus', (str(personClubStatus_name) + str(year) + str(clubKey))  or 'personClubStatus')
+def personClubStatus_key(personClubStatus_name=None):
+	return db.Key.from_path('PersonClubStatus', personClubStatus_name or 'personClubStatus')
   
 def club_key(club_name=None):
 	return db.Key.from_path('Club', club_name or 'club') 
   
-def personEventStatus_key(personEventStatus_name=None, eventKey = None):
-	return db.Key.from_path('PersonEventStatus', (str(personEventStatus_name) + str(eventKey)) or 'personEventStatus')  
+def personEventStatus_key(personEventStatus_name=None):
+	return db.Key.from_path('PersonEventStatus', personEventStatus_name or 'personEventStatus')  
   
 def event_key(event_name=None):
 	return db.Key.from_path('Event', event_name or 'event')  
 	
-def userPermissions_key(userPermissions_name=None,clubKey=None):
-	return db.Key.from_path('userPermissions', (str(userPermissions_name) + str(clubKey)) or 'userPermissions')    
+def userPermissions_key(userPermissions_name=None):
+	return db.Key.from_path('userPermissions', userPermissions_name or 'userPermissions')    
   
 #Security: Unsecured. Accessible to all
   
@@ -134,6 +134,10 @@ class registerPerson(webapp2.RequestHandler):
 			
 class registerPerson_Submit(webapp2.RequestHandler):
   def post(self):
+    # We set the same parent key on the 'Greeting' to ensure each greeting is in
+    # the same entity group. Queries across the single entity group will be
+    # consistent. However, the write rate to a single entity group should
+    # be limited to ~1/second.
 	
 	firstName = self.request.get('firstname')
 	lastName = self.request.get('lastname')
@@ -142,55 +146,13 @@ class registerPerson_Submit(webapp2.RequestHandler):
 	phoneNumber = self.request.get('phonenumber')
 	campus = self.request.get('campus')
 	address = self.request.get('address')
+	person = Person(parent=person_key('defaultkey'))
 	termsAndConditions = self.request.get('TermsAndConditions')
 	personType = self.request.get('personType')
 	personType = int(personType)
 
-	studentID = ''
-	error = '';
 	
-	if error == '':
-		try:		
-
-			studentID = self.request.get('studentid')
-
-			studentID = str(securityManager.trimStudentID(studentID))
-
-			stringLength = studentID.__len__()
-			if stringLength > 7:
-				studentID = int(studentID[:8])
-				if studentID:
-					match = False
-					personToMatch = db.get(person_key(studentID))
-					
-					if personToMatch is None:
-						if personType != 3:
-							persons = db.GqlQuery("SELECT * "
-										"FROM Person "
-										"WHERE authcate = :1 LIMIT 1", authcate)
-							personToMatch = persons.get()
-							if personToMatch is not None:
-								error = '4'
-					else:
-						error = '4'
-					
-				else:
-					error = '1'
-				
-			else:
-				error = '6'
-			
-			
-			
-		except:
-			error = '2'
-			
-	if error == '':
-		person = Person(key=person_key(studentID))
-		person.studentID = studentID
-	else:
-		self.redirect('/register?error=%s' % error)
-		return None
+	error = '';
 	if firstName:
 		person.firstName = firstName
 	else:
@@ -207,7 +169,45 @@ class registerPerson_Submit(webapp2.RequestHandler):
 		if personType != 3:
 			error = '1'
 			
-	
+	if error == '':
+		try:		
+
+			studentID = self.request.get('studentid')
+
+			studentID = str(securityManager.trimStudentID(studentID))
+
+			stringLength = studentID.__len__()
+			if stringLength > 7:
+				studentID = int(studentID[:8])
+				if studentID:
+					match = False
+					persons = db.GqlQuery("SELECT * "
+									"FROM Person "
+									"WHERE ANCESTOR IS :1 AND studentID = :2  LIMIT 1",
+									person_key('default_person'), studentID)
+					for people in persons:
+						error = '4'
+					if personType != 3:
+						persons = db.GqlQuery("SELECT * "
+										"FROM Person "
+										"WHERE ANCESTOR IS :1 AND authcate = :2 LIMIT 1",
+										person_key('default_person'), authcate)
+									
+						for people in persons:
+							error = '4'
+
+					
+					person.studentID = studentID
+				else:
+					error = '1'
+				
+			else:
+				error = '6'
+			
+			
+			
+		except:
+			error = '2'
 		
 	if termsAndConditions != 'YES':
 		error = '7'
@@ -232,10 +232,7 @@ class registerPerson_Submit(webapp2.RequestHandler):
 	if phoneNumber:
 		person.phoneNumber = phoneNumber
 	
-	if personType:
-		person.personType = personType
-	else:
-		error = '1'
+	
 	
 	if error == '':
 		error = "0"
@@ -269,20 +266,28 @@ class addClub(webapp2.RequestHandler):
 			
 class addClub_Submit(webapp2.RequestHandler):
 	def post(self):
+    # We set the same parent key on the 'Greeting' to ensure each greeting is in
+    # the same entity group. Queries across the single entity group will be
+    # consistent. However, the write rate to a single entity group should
+    # be limited to ~1/second.
 		if users.is_current_user_admin() == False:
 			self.redirect('/')
 		
 		clubName = self.request.get('clubname')
 		clubEmail = self.request.get('clubgoogleaccount')
+		newClub = Club(parent=club_key('defaultkey'))
 
 		error = '';
-		if clubName is None:
+		if clubName:
+			newClub.name = clubName
+		else:
 			error = '1'
-
 			
 		if clubEmail:
 			if re.match(r"[^@]+@[^@]+\.[^@]+", clubEmail) == False:
 				error = '3'
+			else:
+				clubEmail = clubEmail.lower()
 		else:
 			error = '1'
 			
@@ -290,21 +295,19 @@ class addClub_Submit(webapp2.RequestHandler):
 			error = "0"
 		
 			clubKey = self.get_primaryKey()
-			newClub = Club(key=club_key(str(clubKey)))
-
-			newClub.name = clubName
+		
 			newClub.primaryKey = clubKey
-			newClub.clubEmail = clubEmail.lower()
-
+		
 			newClub.put();
 			
-			newUserPermissions = userPermissions(key=userPermissions_key(clubEmail,clubKey))
+			newUserPermissions = userPermissions(parent=userPermissions_key('userPermissions'))
 			newUserPermissions.permissionLevel = 2
-			newUserPermissions.name = 'Club Secretary'
 			newUserPermissions.clubKey = clubKey
 			newUserPermissions.email = clubEmail
 			newUserPermissions.put()
-				
+		
+			memcache.delete_multi([clubEmail() + '1', clubEmail() + '2'])
+		
 		self.redirect('/addClub?error=%s' % error)		
 	
 	def get_primaryKey(addClub_Submit):
@@ -317,7 +320,9 @@ class addClub_Submit(webapp2.RequestHandler):
 			highestNumber = 0
 	
 			clubs = db.GqlQuery("SELECT * "
-							"FROM Club ")
+							"FROM Club "
+							"WHERE ANCESTOR IS :1 ",
+							club_key('default_club'))
 		
 			for club in clubs:
 				if highestNumber < club.primaryKey:
@@ -374,7 +379,10 @@ class addMembers(webapp2.RequestHandler):
 	
 class addMembers_Submit(webapp2.RequestHandler):
   def post(self):
-
+    # We set the same parent key on the 'Greeting' to ensure each greeting is in
+    # the same entity group. Queries across the single entity group will be
+    # consistent. However, the write rate to a single entity group should
+    # be limited to ~1/second.
 	error = ''
 	
 	year = datetime.datetime.now().year
@@ -403,8 +411,11 @@ class addMembers_Submit(webapp2.RequestHandler):
 	if error == '':
 		try:
 			if studentID:
-
-				person = db.get(person_key(studentID))
+				persons = db.GqlQuery("SELECT * "
+								"FROM Person "
+								"WHERE studentID = :1 LIMIT 1",
+								studentID)
+				person = persons.get()
 				
 				if person is None:
 					error = '3'
@@ -412,7 +423,6 @@ class addMembers_Submit(webapp2.RequestHandler):
 					personName = person.firstName + ' ' + person.lastName
 					personEmail = person.email.lower()
 					permissionLevel = securityManager.getLevelOfAuthenticationForUserForClub(clubPrimaryKey)
-					
 					if permissionLevel == 0:
 						error = '5'
 						
@@ -440,7 +450,7 @@ class addMembers_Submit(webapp2.RequestHandler):
 	
 	if error == '':
 		
-		newClubStatus = PersonClubStatus(key=personClubStatus_key(studentID,year,clubPrimaryKey))
+		newClubStatus = PersonClubStatus(parent=personClubStatus_key('defaultkey'))
 		
 		newClubStatus.studentID = studentID
 		newClubStatus.year = year
@@ -455,26 +465,35 @@ class addMembers_Submit(webapp2.RequestHandler):
 		
 		newClubStatus.put();
 		
-		club = db.get(club_key(str(clubPrimaryKey)))
+		clubs = db.GqlQuery("SELECT * "
+							"FROM Club "
+							"WHERE primaryKey = :1",
+							int(clubPrimaryKey))
 		
-		clubName = club.name
 		
-		user = users.get_current_user()
-		email = user.email().lower()
-		addedByAuthcate = email.split("@")[0]
+		clubName = clubs.get().name
+		now = datetime.datetime.now()
+		timestamp = now.strftime("%Y-%m-%d %H:%M %Z")
 		
 		message = mail.EmailMessage(sender="No Reply <noreply@monashclubs.org>",
                             subject="You have been added to " + clubName)
 
 		message.to = personName + '<' + personEmail + '>'
 		message.body = '''
-			You have been added as a member of the {!s}. 
-			This has been done by {!s} upon receipt of any membership fees that were payable. 
-			Your information will be used by the club to contact your with regards to club events/activities and 
-			information. If you have been added to this club in error, please contact Clubs & Societies by emailing 
-			webmaster@monashclubs.org. If you would like to make a complaint, please contact the 
-			Club Development Officer at do@monashclubs.org.
-			'''.format(clubName, addedByAuthcate)
+			Dear {!s}:
+			
+			You have been added to the following club:
+			
+			{!s}
+
+			at
+
+			{!s}
+			
+			If this is a mistake, please forward this email to Alistair at webmaster@monashclubs.org
+
+			Thank you.
+			'''.format(personName, clubName, timestamp)
 
 
 		message.send()
@@ -533,7 +552,10 @@ class deleteMember(webapp2.RequestHandler):
 	
 class deleteMember_Submit(webapp2.RequestHandler):
   def post(self):
-
+    # We set the same parent key on the 'Greeting' to ensure each greeting is in
+    # the same entity group. Queries across the single entity group will be
+    # consistent. However, the write rate to a single entity group should
+    # be limited to ~1/second.
 	error = ''
 	
 	year = datetime.datetime.now().year
@@ -561,7 +583,11 @@ class deleteMember_Submit(webapp2.RequestHandler):
 	if error == '':
 		try:
 			if studentID:
-				person = db.get(person_key(studentID))
+				persons = db.GqlQuery("SELECT * "
+								"FROM Person "
+								"WHERE studentID = :1 LIMIT 1",
+								studentID)
+				person = persons.get()
 				
 				if person is None:
 					error = '3'
@@ -584,31 +610,9 @@ class deleteMember_Submit(webapp2.RequestHandler):
 		for person in clubMemberships:
 			person.delete()
 			error = '0'
-			
-			club = db.get(club_key(str(clubPrimaryKey)))
-		
-			clubName = club.name
-			
-			user = users.get_current_user()
-			email = user.email().lower()
-			addedByAuthcate = email.split("@")[0]
-			
-			message = mail.EmailMessage(sender="No Reply <noreply@monashclubs.org>",
-								subject="You have been added to " + clubName)
-
-			message.to = personName + '<' + personEmail + '>'
-			message.body = '''
-				You have been removed as a member of the {!s}.
-				This has been done by {!s} upon receipt of a request from yourself
-				to terminate your membership or if you have been removed as a member of this club in
-				accordance with the clubs constitution and the constitution of the Clubs & Societies Council.
-				If you have been added to this club in error, please contact Clubs & Societies by
-				emailing webmaster@monashclubs.org. If you would like to make a complaint, please contact
-				the Club Development Officer at do@monashclubs.org
-				'''.format(clubName, addedByAuthcate)
-
-
-			message.send()
+	
+	if error == '':
+		error = '7'
 	
 	self.redirect('/deleteMember?error=%s' % error)
 	
@@ -659,6 +663,10 @@ class deletePerson(webapp2.RequestHandler):
 	
 class deletePerson_Submit(webapp2.RequestHandler):
   def post(self):
+    # We set the same parent key on the 'Greeting' to ensure each greeting is in
+    # the same entity group. Queries across the single entity group will be
+    # consistent. However, the write rate to a single entity group should
+    # be limited to ~1/second.
 	error = ''
 	
 	year = datetime.datetime.now().year
@@ -683,8 +691,12 @@ class deletePerson_Submit(webapp2.RequestHandler):
 	if error == '':
 		try:
 			if studentID:
-				person = db.get(person_key(studentID))
-
+				persons = db.GqlQuery("SELECT * "
+								"FROM Person "
+								"WHERE studentID = :1 LIMIT 1",
+								studentID)
+				person = persons.get()
+				
 				if person is None:
 					error = '3'
 				else:
@@ -749,10 +761,18 @@ class checkMemberStatus_Submit(webapp2.RequestHandler):
 		if error == '':
 			#try:
 			if studentID:
-				person = db.get(person_key(studentID))
-
+				persons = db.GqlQuery("SELECT * "
+								"FROM Person "
+								"WHERE studentID = :1",
+								studentID)
 				match = False
-				if person:
+				person = ''
+				for Person in persons:
+					person = Person
+					match = True
+				if person == '':
+					error = '3'
+				else:	
 					name = person.firstName + person.lastName
 					email = person.email
 					campus = person.campus
@@ -788,72 +808,54 @@ class checkMemberStatus_Submit(webapp2.RequestHandler):
 						index = person.personType - 1
 					type = type[index]
 					tableString = ''
-					MSAMemberStatus = 'N'
 					clubMemberships = db.GqlQuery("SELECT * "
 								"FROM PersonClubStatus "
 								"WHERE studentID = :1",
 								studentID)
 					
-					clubList = []
-					clubs = securityManager.getClubsUserIsAdminOf()
-					
-					for club in clubs:
-						clubList.append(club)
-					
-					now = datetime.datetime.now()
-					year = now.year
-					
 					for membership in clubMemberships:
 						clubKey = membership.clubKey
 						clubName = ''
-						if membership.year == year and clubKey == 0:
-							MSAMemberStatus = 'Y'
+						if clubKey == 0:
+							clubName = 'MSA Card'
+						else:
+							clubs = db.GqlQuery("SELECT * "
+								"FROM Club WHERE primaryKey = :1", clubKey)
+							club = clubs.get()
+							if club:
+								clubName = club.name
+							else:
+								clubName = 'N/A'
+						addedBy = membership.addedBy
+						if addedBy is None:
+							addedBy = 'N/A'
 							
-						for club in clubList:
-							if club.primaryKey == clubKey:
-
-								club = db.get(club_key(str(clubKey)))
-								
-								if club:
-									clubName = club.name
-								else:
-									clubName = 'Error, not found. Key:' + str(clubKery)
-									
-								addedBy = membership.addedBy
-								if addedBy is None:
-									addedBy = 'N/A'
-									
-								date = membership.joiningDate
-								if date is None:
-									date = 'N/A'
-								
-								
-								year = membership.year
-								if year is None:
-									year = 'None'
-								tableString = tableString + '<tr><td>' + clubName + '</td><td>' + str(year) + '</td><td>' + addedBy  + '</td><td>' + str(date) + '</td></tr>'
+						date = membership.joiningDate
+						if date is None:
+							date = 'N/A'
 						
-					if tableString == '' and users.is_current_user_admin():
-						self.redirect('/')
+						
+						year = membership.year
+						if year is None:
+							year = 'None'
+						tableString = tableString + '<tr><td>' + clubName + '</td><td>' + str(year) + '</td><td>' + addedBy  + '</td><td>' + str(date) + '</td></tr>'
 					
 					
 					template_values = {
-						'type'				: type,
-						'name'				: name,
-						'email'				: email,
-						'authcate'			: authcate,
-						'address'			: address,
-						'campus'			: campus,
-						'studentID'			: studentID,
-						'phoneNumber'		: phoneNumber,
-						'memberships'		: tableString,
-						'MSAMemberStatus'	: MSAMemberStatus
+						'type'			: type,
+						'name'			: name,
+						'email'			: email,
+						'authcate'		: authcate,
+						'address'		: address,
+						'campus'		: campus,
+						'studentID'		: studentID,
+						'phoneNumber'	: phoneNumber,
+						'memberships'	: tableString
 					}
 
 					path = os.path.join(os.path.dirname(__file__), 'showMemberStatus.html')
 					self.response.out.write(template.render(path, template_values))		
-				else:
-					error = '3'
+											
 			else:
 				error = '1'
 			#except:
@@ -889,7 +891,10 @@ class addMSACard(webapp2.RequestHandler):
 	
 class addMSACard_Submit(webapp2.RequestHandler):
   def post(self):
-
+    # We set the same parent key on the 'Greeting' to ensure each greeting is in
+    # the same entity group. Queries across the single entity group will be
+    # consistent. However, the write rate to a single entity group should
+    # be limited to ~1/second.
 	error = ''
 	year = self.request.get('year')
 	if year:
@@ -969,8 +974,7 @@ class index(webapp2.RequestHandler):
 					
 					deleteFromClub = True
 					deletePersonFromSystem = True
-					checkMemberStatus = True
-
+			
 					secretaryRights = True
 					adminRights = True
 					
@@ -980,7 +984,8 @@ class index(webapp2.RequestHandler):
 					match = False
 					memberOf = db.GqlQuery("SELECT * "
 								"FROM userPermissions "
-								"WHERE email = :1", user.email().lower())	
+								"WHERE ANCESTOR IS :1 AND email = :2",
+								userPermissions_key('default_permissions'), user.email().lower())	
 					
 					currentPermissionLevel = 0
 					
@@ -1048,7 +1053,7 @@ class index(webapp2.RequestHandler):
 				'modifyDetails'			: modifyDetails,
 				'deleteFromClub'		: deleteFromClub,
 				'deletePersonFromSystem': deletePersonFromSystem,
-				'viewClubEmails'		: clubEmail,
+				'viewClubEmails'		: clubEmails,
 				'checkMemberStatus'		: checkMemberStatus
 			}
 			
@@ -1061,7 +1066,8 @@ class viewClubs(webapp2.RequestHandler):
 
 		clubs = db.GqlQuery("SELECT * "
                             "FROM Club "
-                            )
+                            "WHERE ANCESTOR IS :1",
+                            club_key('default_club'))
 		
 		for Club in clubs:
 			masterString = Club.name + '<br>' +  masterString
@@ -1192,14 +1198,15 @@ class modifyDetails_Submit(webapp2.RequestHandler):
 		phoneNumber = self.request.get('phonenumber')
 		campus = self.request.get('campus')
 		address = self.request.get('address')
+		person = Person(parent=person_key('defaultkey'))
 		termsAndConditions = self.request.get('TermsAndConditions')
 
 		error = ''
 		
 		persons = db.GqlQuery("SELECT * "
 										"FROM Person "
-										"WHERE authcate = :1 LIMIT 1",
-										 authcate)
+										"WHERE ANCESTOR IS :1 AND authcate = :2 LIMIT 1",
+										person_key('default_person'), authcate)
 		person = persons.get()
 		
 		
@@ -1277,8 +1284,9 @@ class viewClubMembers(webapp2.RequestHandler):
 			if permissionLevel != 2:
 				self.redirect('/')
 			
-			club = db.get(club_key(str(clubKey)))
-
+			clubs = db.GqlQuery("SELECT * "
+                            "FROM Club WHERE primaryKey = :1", clubKey)
+			club = clubs.get()
 			if club:
 				nameOfClub = club.name
 
@@ -1319,9 +1327,11 @@ class viewClubMembers(webapp2.RequestHandler):
 										int(clubKey),year)
 		membercount = 0
 		for membership in clubMemberships:
-			person = db.get(person_key(membership.studentID))
-			if person:
-				membercount = membercount + 1
+			people = db.GqlQuery("SELECT * FROM Person WHERE studentID = :1",
+										membership.studentID)
+			membercount = membercount + 1
+			for person in people:
+				
 				name = person.firstName + ' ' + person.lastName
 				studentID = str(person.studentID)
 				address = person.address
@@ -1353,7 +1363,7 @@ class viewClubMembers(webapp2.RequestHandler):
 					else:
 						memberType = 'Associate'
 				else:
-					memberType = 'Ordinary'
+					memberType = 'N/A'
 				
 				msaMemberships = db.GqlQuery("SELECT * FROM PersonClubStatus WHERE clubKey = 0 AND year = :1 AND studentID = :2",year, int(studentID))
 				for memberships in msaMemberships:
@@ -1437,11 +1447,11 @@ class clubEmails(webapp2.RequestHandler):
 										int(clubKey),year)
 		membercount = 0
 		for membership in clubMemberships:
-			person = persons.get(person_key(str(membership.studentID)))
-
-			if person:
-				membercount = membercount + 1
-
+			people = db.GqlQuery("SELECT email FROM Person WHERE studentID = :1",
+										membership.studentID)
+			membercount = membercount + 1
+			for person in people:
+			
 				email = person.email.lower()
 				
 				masterString = masterString + '<br>' + email
@@ -1527,16 +1537,16 @@ class selectClubPermissionsToView_Submit(webapp2.RequestHandler):
 		
 			memberOf = db.GqlQuery("SELECT * "
 								"FROM userPermissions "
-								"WHERE clubKey = :1",
-								 clubKey)
+								"WHERE ANCESTOR IS :1 AND clubKey = :2",
+								userPermissions_key('default_permissions'), clubKey)
 
 			for permissions in memberOf:
 				if permissions.permissionLevel == 2:
-					masterString = masterString + permissions.email + '<br>Admin<br>' + permissions.name + '<br>'
+					masterString = masterString + permissions.email + '<br>Admin<br><br>'
 				elif permissions.permissionLevel == 1:
-					masterString = masterString + permissions.email + '<br>Personnel<br>' + permissions.name + '<br><br>'
+					masterString = masterString + permissions.email + '<br>Personnel<br><br>'
 				else:
-					masterString = masterString + permissions.email + '<br>Unknown<br>' + permissions.name + '<br><br>'
+					masterString = masterString + permissions.email + '<br>Unknown<br><br>'
 			template_values = {
 				'nameOfClub': nameOfClub,
 				'table'		: masterString
@@ -1597,7 +1607,10 @@ class addPersonnelToClub(webapp2.RequestHandler):
 	
 class addPersonnelToClub_Submit(webapp2.RequestHandler):
   def post(self):
-
+    # We set the same parent key on the 'Greeting' to ensure each greeting is in
+    # the same entity group. Queries across the single entity group will be
+    # consistent. However, the write rate to a single entity group should
+    # be limited to ~1/second.
 	error = ''
 		
 	clubPrimaryKey = self.request.get('clubinput')
@@ -1611,23 +1624,25 @@ class addPersonnelToClub_Submit(webapp2.RequestHandler):
 			clubPrimaryKey = int(self.request.get('clubinput'))
 			if securityManager.getLevelOfAuthenticationForUserForClub(clubPrimaryKey) == 2:
 				if email:
-					email = email.lower() + '@student.monash.edu'
-					
-					newUserPermissions = userPermissions(key=userPermissions_key(email,clubPrimaryKey))
+					newUserPermissions = userPermissions(parent=userPermissions_key('userPermissions'))
 					newUserPermissions.permissionLevel = 1
 					newUserPermissions.clubKey = clubPrimaryKey
 					newUserPermissions.name = name
-					
+					email = email.lower() + '@student.monash.edu'
 				
-					newUserPermissions.email = email.lower()
+					newUserPermissions = email.lower()
 				
 				#Check if it already exists.
 				
-					userPermission = db.get(userPermissions_key(email, clubPrimaryKey))
-			
-					if userPermission:
+					userPermission = db.GqlQuery("SELECT * "
+									"FROM userPermissions "
+									"WHERE email = :1 AND clubKey = :2",
+									email, clubPrimaryKey)
+		
+					for permissions in userPermission:
 						error = '6'
-					else:
+				
+					if error == '':
 						newUserPermissions.put()
 					
 						memcache.delete_multi([email + '1', email + '2'])
@@ -1692,7 +1707,10 @@ class deletePersonnelFromClub(webapp2.RequestHandler):
 	
 class deletePersonnelFromClub_Submit(webapp2.RequestHandler):
   def post(self):
-
+    # We set the same parent key on the 'Greeting' to ensure each greeting is in
+    # the same entity group. Queries across the single entity group will be
+    # consistent. However, the write rate to a single entity group should
+    # be limited to ~1/second.
 	error = ''
 		
 	clubPrimaryKey = self.request.get('clubinput')
@@ -1767,7 +1785,11 @@ class addEvent(webapp2.RequestHandler):
 		
 class addEvent_Submit(webapp2.RequestHandler):
   def post(self):
-
+    # We set the same parent key on the 'Greeting' to ensure each greeting is in
+    # the same entity group. Queries across the single entity group will be
+    # consistent. However, the write rate to a single entity group should
+    # be limited to ~1/second.
+	
 	eventName = self.request.get('eventname')
 	date = self.request.get('date')
 	location = self.request.get('location')
@@ -1777,24 +1799,6 @@ class addEvent_Submit(webapp2.RequestHandler):
 	newEvent = Event(parent=event_key('defaultkey'))
 	
 	error = '';
-	
-	highestNumber = 0
-		
-	events = db.GqlQuery("SELECT * "
-						"FROM Event "
-						" ORDER BY primaryKey DESC"
-						)
-	
-	for event in events:
-		if highestNumber < event.primaryKey:
-			highestNumber = event.primaryKey
-	
-	highestNumber = highestNumber + 1
-	
-	newEvent = Event(key=event_key(highestNumber))
-
-	
-	newEvent.primaryKey = highestNumber
 	
 	
 	
@@ -1831,7 +1835,20 @@ class addEvent_Submit(webapp2.RequestHandler):
 	if error == '':
 		error = "0"
 		
+		highestNumber = 0
 		
+		events = db.GqlQuery("SELECT * "
+                            "FROM Event "
+                            "WHERE ANCESTOR IS :1 ",
+                            event_key('default_club'))
+		
+		for event in events:
+			if highestNumber < event.primaryKey:
+				highestNumber = event.primaryKey
+		
+		highestNumber = highestNumber + 1
+		
+		newEvent.primaryKey = highestNumber
 		
 		newEvent.put();
 		
@@ -1847,7 +1864,8 @@ class viewEvents(webapp2.RequestHandler):
 
 		events = db.GqlQuery("SELECT * "
                             "FROM Event "
-                            )
+                            "WHERE ANCESTOR IS :1 ",
+                            event_key('default_event'))
 		
 		for event in events:
 			eventline = ''
@@ -1855,13 +1873,13 @@ class viewEvents(webapp2.RequestHandler):
 				eventline = event.name
 				
 			if event.location:
-				eventline = eventline + ' - ' + event.location
+				eventline = eventline + '\t' + event.location
 				
 			if event.clubName:
-				eventline = eventline + ' - ' + event.clubName
+				eventline = eventline + '\t' + event.clubName
 				
 			if event.date:
-				eventline = eventline + ' - ' + event.date
+				eventline = eventline + '\t' + event.date
 				
 			masterString = eventline  + '<br><br>' + masterString	
 
@@ -1893,7 +1911,8 @@ class addMembersToEvent(webapp2.RequestHandler):
 			
 			events = db.GqlQuery("SELECT * "
                             "FROM Event "
-                            )
+                            "WHERE ANCESTOR IS :1 ",
+                            event_key('default_club'))
 			
 			clubs = securityManager.getClubsUserIsPersonnelOf()
 			
@@ -1937,18 +1956,21 @@ class addMembersToEvent_Submit(webapp2.RequestHandler):
 	if error == '':
 		try:
 			if studentID:
-				person = db.get(person_key(studentID))
-				if person:
-					msaCardStatus = self.request.get('msacardstatus')
-				
-					if msaCardStatus == 'YES':
-						securityManager.addMSACardToStudent(studentID)
-					
-				else:
+				persons = db.GqlQuery("SELECT * "
+								"FROM Person "
+								"WHERE studentID = :1",
+								studentID)
+				match = False
+				for Person in persons:
+					match = True
+				if match == False:
 					error = '3'
-
 				
-
+				msaCardStatus = self.request.get('msacardstatus')
+				
+				if msaCardStatus == 'YES':
+					securityManager.addMSACardToStudent(studentID)
+					
 			else:
 				error = '1'
 		except:
@@ -1960,31 +1982,36 @@ class addMembersToEvent_Submit(webapp2.RequestHandler):
 		
 		clubs = securityManager.getClubsUserIsPersonnelOf()
 		
-		event = db.get(event_key(eventKey))	
+		events = db.GqlQuery("SELECT * "
+                            "FROM Event "
+                            "WHERE ANCESTOR IS :1 AND primaryKey = :2",
+                            event_key('default_club'), eventKey)
+			
 		clubs = securityManager.getClubsUserIsPersonnelOf()
 			
 		match = False
 		
-		for club in clubs:
-			if event.clubKey == club.primaryKey:
-				match = True
+		for event in events:
+			for club in clubs:
+				if event.clubKey == club.primaryKey:
+					match = True
 		
 		if match == False:
 			self.redirect('/')
 			
 		eventStatus = db.GqlQuery("SELECT * "
                             "FROM PersonEventStatus "
-                            "WHERE eventKey = :1 AND studentID = :2 LIMIT 1", eventKey, studentID)
+                            "WHERE ANCESTOR IS :1 AND eventKey = :2 AND studentID = :3",
+                            personEventStatus_key('default_eventstatus'), eventKey, studentID)
 			
 		for status in eventStatus:	
 			error = '4'
 			
 		if error == '':	
-			personEventStatus = PersonEventStatus(key=personEventStatus_key(studentID,eventKey))
+			personEventStatus = PersonEventStatus(parent=personEventStatus_key('defaultkey'))
 			
 			personEventStatus.studentID = studentID
 			personEventStatus.eventKey = eventKey
-			
 			
 			
 			user = users.get_current_user()
@@ -2007,14 +2034,21 @@ class viewEventMembers(webapp2.RequestHandler):
 
 		match = False
 		
-		event = db.get(event_key(eventKey))
+		events = db.GqlQuery("SELECT * FROM Event WHERE primaryKey = :1",
+											int(eventKey))
 		
+		currentEvent = Event(parent=event_key('defaultkey'))
 		clubKey = -0
 		
-		clubKey = event.clubKey
-		eventName = event.name
-		eventDate = event.date
-		eventLocation = event.location
+		eventName = ''
+		eventDate = ''
+		eventLocation = ''
+		clubName = ''
+		for event in events:									
+			clubKey = event.clubKey
+			eventName = event.name
+			eventDate = event.date
+			eventLocation = event.location
 							
 		clubs = securityManager.getClubsUserIsAdminOf()
 		match = False
@@ -2032,7 +2066,6 @@ class viewEventMembers(webapp2.RequestHandler):
 		
 		masterString = '<table border="1"><th>Full Name</th><th>Club Member</th><th>Clayton Student</th><th>Student ID Number</th><th>MSA Card Holder</th><th>Phone Number</th><th>Signin Time</th>'	
 		template_values = {
-		
 		}	
 		
 		numberOfAttendees = 0
@@ -2041,9 +2074,10 @@ class viewEventMembers(webapp2.RequestHandler):
 		numberOfMSACardHolders = 0
 		
 		for membership in eventMemberships:
-			person = db.get(person_key(membership.studentID))
 
-			if person:
+			people = db.GqlQuery("SELECT * FROM Person WHERE studentID = :1",
+											membership.studentID)
+			for person in people:
 				name = ''
 				claytonStudent = ''
 				studentID = ''
@@ -2069,17 +2103,14 @@ class viewEventMembers(webapp2.RequestHandler):
 				else:
 					claytonStudent = 'N'
 				
-				MSACardStatus = db.GqlQuery("SELECT * FROM PersonClubStatus WHERE studentID = :1 AND clubKey = 0 AND year = :2", membership.studentID,membership.creationDate.year)
-				logging.info(membership.studentID)
-				logging.info(str(membership.creationDate.year))
-
+				MSACardStatus = db.GqlQuery("SELECT * FROM PersonClubStatus WHERE studentID = :1 AND clubKey = 0 AND year = :2", membership.studentID,str(membership.creationDate.year))
 				MSACardHolder = 'N'
 				
 				for status in MSACardStatus:
 					MSACardHolder = 'Y'
 					numberOfMSACardHolders = numberOfMSACardHolders + 1
 					
-				ClubStatus = db.GqlQuery("SELECT * FROM PersonClubStatus WHERE studentID = :1 AND clubKey = :2 AND year = :3", membership.studentID, clubKey,membership.creationDate.year)
+				ClubStatus = db.GqlQuery("SELECT * FROM PersonClubStatus WHERE studentID = :1 AND clubKey = :2 AND year = :3", membership.studentID, clubKey,str(membership.creationDate.year))
 				clubMember = 'N'
 				
 				for status in ClubStatus:
@@ -2121,7 +2152,8 @@ class selectEventToView(webapp2.RequestHandler):
 			for club in clubs:
 				events = db.GqlQuery("SELECT * "
 								"FROM Event "
-								"WHERE clubKey = :1", club.primaryKey)
+								"WHERE ANCESTOR IS :1 AND clubKey = :2",
+								event_key('default_key'), club.primaryKey)
 				
 				for event in events:
 					eventline = ''
@@ -2183,12 +2215,18 @@ class securityManager():
 					
 					memberOf = db.GqlQuery("SELECT * "
                                     "FROM userPermissions "
-                                    "WHERE email = :1",
-                                    user.email().lower())
+                                    "WHERE ANCESTOR IS :1 AND email = :2",
+                                    userPermissions_key('default_permissions'), user.email().lower())
                                     
 					for userPermissions in memberOf:
 						if userPermissions.permissionLevel >= minimumPermissionLevel:
-							array.append(db.get(club_key(str(userPermissions.clubKey))))
+
+							clubs = db.GqlQuery("SELECT * "
+                                    "FROM Club "
+                                    "WHERE ANCESTOR IS :1 AND primaryKey = :2",
+                                    club_key('default_club'), userPermissions.clubKey)
+							for club in clubs:
+								array.append(club)
     
 					memcache.set(key,array)
                         
@@ -2212,12 +2250,15 @@ class securityManager():
 					return result
 				else:
                     #User is logged in, but not a admin. Search for priorites
+					memberOf = db.GqlQuery("SELECT * "
+                                    "FROM userPermissions "
+                                    "WHERE ANCESTOR IS :1 AND email = :2 AND clubKey = :3",
+                                    userPermissions_key('default_permissions'), user.email().lower(), clubPrimaryKey)
+					for permissions in memberOf:
+						if permissions.clubKey == clubPrimaryKey:
+							memcache.set(key,permissions.permissions)
 
-					memberOf = db.get(userPermissions_key(user.email().lower(), clubPrimaryKey))				
-									
-					if memberOf:
-						memcache.set(key,permissions.permissionLevel)
-						return permissions.permissionLevel
+							return permissions.permissionLevel
 
 
 	@staticmethod
@@ -2247,9 +2288,21 @@ class securityManager():
 			if studentID:
 			
 				studentID = securityManager.trimStudentID(studentID)
-				person = db.get(person_key(studentID))
-				if person is None:
-					error = '3'					
+			
+				persons = db.GqlQuery("SELECT * "
+								"FROM Person "
+								"WHERE studentID = :1",
+								studentID)
+				match = False
+				for Person in persons:
+					match = True
+				if match:
+					studentID = studentID
+				else:
+					error = '3'
+					
+
+					
 			else:
 				error = '1'
 		except:
@@ -2269,7 +2322,7 @@ class securityManager():
 	
 		if error == '':
 		
-			newClubStatus = PersonClubStatus(key=personClubStatus_key(studentID,year,'0'))
+			newClubStatus = PersonClubStatus(parent=personClubStatus_key('defaultkey'))
 			
 			newClubStatus.studentID = int(studentID)
 			newClubStatus.year = year

@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+{% autoescape off%}
 <html lang="en">
   
   <head>
@@ -25,7 +26,7 @@
       <div class="navbar-inner">
         <div class="container">
           <a class="brand" href="/">
-            Monash Club Registration
+              Monash Club Registration
           </a>
           <ul class="nav">
           </ul>
@@ -35,15 +36,27 @@
     <div class="container">
       <div>
         <h1>
-		{{ nameOfClub }}
+          View Person's Details
         </h1>
+		{% if error %}
         <p>
-		{% autoescape off%}
-		{{ table }}
-		{% endautoescape %}
-
-        </p>
+			<font color="red">
+				{{ error }}
+			</font>
+		</p>
+		{% endif %}
       </div>
+	  <form action="/checkMemberStatus_Submit?%s" method="post">
+	  
+	
+      <div class="control-group">
+        <label for="studentid">
+          Student ID
+        </label>
+        <input name="studentid" type="" id="studentid">
+      </div>
+	  <div><input type="submit" value="Submit"></div>
+	  </form>
     </div>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js">
     </script>
@@ -52,3 +65,4 @@
   </body>
 
 </html>
+{% endautoescape %}

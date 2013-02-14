@@ -83,7 +83,8 @@
 		<br>
 		{% if secretaryRights %}
 		<font size='5'>Secretary Only:</font>
-		<br>Herew be dragons, or atleast the threat of the secretary T&C. <br>
+		<br>Personal Information about Club Members can ONLY be accessed by the Secretary of the Club. Failure to comply with Section 6.2.2(xiv) of the Clubs & Societies Council Constitution and your Club's Constitution will result in disciplinary action against your Club, your Club's Committee and any other individuals involved. Clubs must not under any circumstances pass this information onto a third party 
+		<br>
 		{% endif %}
 		<br>
 		{% if addPersonnelToClub %}
@@ -114,6 +115,18 @@
           <a class="title  imgScanned click" href="/selectClubToView">
             View Club Members
           </a> - View everyone in the club.
+		  <br>
+		{% endif %}
+		{% if viewClubEmails %}
+          <a class="title  imgScanned click" href="/selectClubEmails">
+            Get Club Emails
+          </a> - Generate a list of all emails for a club
+		  <br>
+		{% endif %}
+		{% if checkMemberStatus %}
+          <a class="title  imgScanned click" href="/checkMemberStatus">
+            Check Member Status
+          </a> - Check the status of a member.
 		  <br>
 		{% endif %}
 		{% if addEvent %}
