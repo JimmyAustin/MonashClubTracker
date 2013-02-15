@@ -24,8 +24,8 @@
       <div class="navbar-inner">
         <div class="container">
           <a class="brand" href="/">
-            Monash Club Registration
-          </a>
+Monash C&S Membership Database
+           </a>
           <ul class="nav">
           </ul>
         </div>
@@ -44,17 +44,17 @@
 	<form action="/submit?%s" method="post">
     <div class="container">
 	
-		Welcome! Please enter your details so we can get started. You only have
-        to enter your details once, and then go to a club representatitve so have
-        them enter you into their club.
+		Welcome! Please enter your details into the C&S Membership Database. You only have
+        to enter your details once, and then go to a club representative to have
+        them add you to their membership list once you have paid the membership fee.
 		<br><br>
-		Data can be accessed by the clubs and societys you join, as well as Monash Student Assocation.
+		Data can be accessed by the Secretaries of the clubs that you join, as well as the Clubs & Societies Division, and the Monash Student Association. 
 		<br><br>
       </p>
 	  
 	  {% if error %}
         <p>
-			<font color="red">
+			<font size='4' color="red">
 				{{ error }}
 			</font>
 		</p>
@@ -80,7 +80,7 @@
         <select name="personType" id="personType">
 			<option value="1">Student</option>
 			<option value="2">Staff</option>
-			<option value="3">Non-Student</option>
+			<option value="3">Other</option>
         </select>
       </div>
 	
@@ -122,6 +122,7 @@
         </label>
         <select name="campus" id="campus">
 			<option value="1">Clayton</option>
+			<option value="12">Non-Monash Student</option>
 			<option value="2">Caulfield</option>
 			<option value="3">Peninsula</option>
  			<option value="4">Parkville</option>
@@ -134,8 +135,62 @@
   			<option value="11">China</option>
         </select>
       </div>
-	  <input type="checkbox" name="TermsAndConditions" value="YES">I have read and accepted the Terms and Conditions above.<br><br>
-	  <div><input type="submit" value="Submit"></div>
+	  <div style="height:320px;width:auto;border:1px solid #ccc;overflow:auto;">
+
+MSA C&S Membership Database Privacy Policy<br><br>
+	1	Purpose<br>
+	1.1	 Monash Student Association (MSA) believes that clubs are a vibrant part of university cultures.<br>   
+
+	1.2 This policy will support clubs to know their rights and responsibilities in the collection of member data.<br>
+
+	1.3 This policy will help members of clubs and students attending club events understand what can and cannot be done with their private information that they provide to clubs and the MSA.<br><br>
+
+2	Application of this policy<br>
+	2.1	This policy only applies of the C&S Membership Database website, clubs affiliated with MSA and the Clubs and Societies division of MSA.<br>  <br> 
+3	Privacy Statement<br>
+Monash Student Association (MSA), Clubs and Societies Council Division (C&S) and Affiliated Clubs respect the privacy of students’ personal information by adhering to current privacy laws.  The C&S Membership Database web site privacy statement will periodically be update to reflect web site and privacy legislation compliance development and planning. <br><br> 
+
+4	Use of Personal Details<br>
+Monash Student Association (MSA) Clubs and Societies Council Division (C&S) and Affiliated Clubs respect student privacy and respect our obligation to protect student privacy.  Monash Student Association, Clubs and Societies Council Division and Affiliated Clubs will not pass on any personal information including email addresses to any third party.  Any student wishing to be removed from the C&S Membership Database should contact webmaster@monashclubs.org with their name, student number and the list of clubs they have joined, requesting to be removed from the system.  Please note, removal from database may cause difficulties in attending events and/or being contacted by a club.<br><br>
+ 
+5	Online Forms<br>
+Any  personal details left on the C&S Membership Database website will only be disclosed for the purpose it was collected.  If this information is wanted for another use then permission must first be obtained, except for when used in accordance with any exemptions under privacy legislation.  The main purpose for leaving personal details on the C&S Membership Database website is so any clubs a member may affiliate too can be contacted by the club in regards to events or promotions. <br><br>
+
+6	Security<br>
+	6.1	The C&S Membership Database website does not guarantee secure transmission over the internet.  Visitors should be aware that there are inherent risks in transmitting information over the internet.<br>  
+	6.2	Data provided will only be accessible by the Secretaries of  any clubs affiliated to and to the C&S division of MSA.<br>
+	6.3	Clubs will only be able to access personal data of members of a club, while that person is still a member; however some clubs may add your details to a Club Mailing/Newsletter List.  To be removed from any such lists please contact the affiliated club directly.<br>
+	6.4	Affiliated Clubs are constitutionally bound to restrict access of member personal data to Club Secretaries only.  Any failure to comply with this will result in disciplinary action against both the Club and any individuals concerned.<br>
+	6.5	If a member feels their information is being used inappropriately or mismanaged, email the Club Development Officer at do@monashclubs.org. Any complaint will be handled by the MSA C&S Division.<br>
+	6.6	Members will be contacted once their details have been added or removed (except when removed for expiration of membership) as a Member of an Affiliated Club.<br>
+	6.7	If a member believes that the addition or removal of their personal details from the C&S Membership Database website is incorrect, they must alert the C&S Division by emailing webmaster@monashclubs.org .<br> 
+	6.8	All complaints about the C&S Membership Database website must go to do@monashclubs.org <br><br>
+
+7	Terms and Conditions of Use<br>
+	7.1	In joining an Affiliated Club, the Member accepts and agrees to be bound by these Conditions of Use and the MSA C&S Membership Privacy Policy<br>
+	7.2	Members must also adhere to the Constitution of any Affiliated Club they join and the Constitution of the Clubs and Societies Division of MSA and the Constitution of MSA<br>
+	7.3	Registration of membership will entitle the member to membership of an Affiliated Club usually until the 20th March of the following year of starting the membership.  Members will need to confirm membership expiration date with the Affiliated Club<br>
+	7.4	Membership is non-transferable and membership fees are non-refundable under any circumstances<br>
+	7.5	Each Affiliated Club reserves the right to alter membership fees at the start of each year as outline in their Club Constitution<br>
+	7.6	Membership may be terminated by the Affiliated Club as outlined in the Constitution of the Affiliated Clubs and Constitution of the Clubs and Societies Council (C&S Division)<br>
+	7.7	Members are responsible for updating their information in the C&S Membership Database by logging into the C&S Membership Database with their Monash University student Gmail account<br>
+	7.8	By becoming a Member of an Affiliated Club, the member is authorising the Affiliated Club and C&S Division to contact them on any matters deemed of relevance (by the Affiliated Club or Clubs and Societies Division) in relation to the activities of the Club.  Members can opt-out of any organisational newsletters or SMS by contacting the Affiliated Club<br><br>
+
+8	Related Policies and Procedures<br>
+	8.1	More detailed explanations of the Privacy Policies that MSA and the C&S Membership Database must adhere to are the Monash University Privacy Procedure accessible at http://www.privacy.monash.edu.au/procedure/ <br>
+	8.2	MSA Privacy Policy<br><br>
+
+9	Privacy Legislation<br>
+MSA must comply with the Victorian Information Privacy Act 2000 and the Health Records Act 2001<br><br>
+
+10	Collecting, using and disclosing personal information<br>
+ Users of the C&S Membership Database website may receive a cookie on their computers memory.  A cookie is a small data structure sent from a web server to the internet browser and saved on your hard drive as a text file.  Most web browsers are set to accept cookies.  If you do not wish to receive cookies you can disable this function in your web browser although doping so may restrict access to some web pages.  Cookies store non-personal information such as your server address, top level domain name, date and time of your last visit, pages accessed and downloaded, address of last website visited and type of browser used.  MSA use this information for monitoring of the website and to facilitate website management, development and planning.  No information from cookies is sent to third party providers.  
+
+	</div>
+
+		  <input type="checkbox" name="TermsAndConditions" value="YES">I have read and accepted the Terms and Conditions above.<br><br>
+
+	<div><input type="submit" value="Submit"></div>
     </div>
 	</form>
 	

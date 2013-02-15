@@ -462,12 +462,11 @@ class addMembers_Submit(webapp2.RequestHandler):
 		user = users.get_current_user()
 		email = user.email().lower()
 		addedByAuthcate = email.split("@")[0]
-		
-		message = mail.EmailMessage(sender="No Reply <noreply@monashclubs.org>",
-                            subject="You have been added to " + clubName)
-
-		message.to = personName + '<' + personEmail + '>'
-		message.body = '''
+		try:
+			message = mail.EmailMessage(sender="No Reply <noreply@monashclubs.org>", subject="You have been added to " + clubName)
+			
+			message.to = personName + '<' + personEmail + '>'
+			message.body = '''
 			You have been added as a member of the {!s}. 
 			This has been done by {!s} upon receipt of any membership fees that were payable. 
 			Your information will be used by the club to contact your with regards to club events/activities and 
@@ -477,8 +476,9 @@ class addMembers_Submit(webapp2.RequestHandler):
 			'''.format(clubName, addedByAuthcate)
 
 
-		message.send()
-		
+			message.send()
+		except:
+			logging.error('Failure to send email')
 		
 		
 		error = '0'
@@ -592,12 +592,12 @@ class deleteMember_Submit(webapp2.RequestHandler):
 			user = users.get_current_user()
 			email = user.email().lower()
 			addedByAuthcate = email.split("@")[0]
-			
-			message = mail.EmailMessage(sender="No Reply <noreply@monashclubs.org>",
-								subject="You have been added to " + clubName)
+			try:
+				message = mail.EmailMessage(sender="No Reply <noreply@monashclubs.org>",
+				subject="You have been added to " + clubName)
 
-			message.to = personName + '<' + personEmail + '>'
-			message.body = '''
+				message.to = personName + '<' + personEmail + '>'
+				message.body = '''
 				You have been removed as a member of the {!s}.
 				This has been done by {!s} upon receipt of a request from yourself
 				to terminate your membership or if you have been removed as a member of this club in
@@ -608,8 +608,10 @@ class deleteMember_Submit(webapp2.RequestHandler):
 				'''.format(clubName, addedByAuthcate)
 
 
-			message.send()
-	
+				message.send()
+			except:
+				logging.error('Failure to send email')
+            
 	self.redirect('/deleteMember?error=%s' % error)
 	
 class deletePerson(webapp2.RequestHandler):
@@ -817,7 +819,7 @@ class checkMemberStatus_Submit(webapp2.RequestHandler):
 								if club:
 									clubName = club.name
 								else:
-									clubName = 'Error, not found. Key:' + str(clubKery)
+									clubName = 'Error, not found. Key:' + str(clubKey)
 									
 								addedBy = membership.addedBy
 								if addedBy is None:
@@ -833,7 +835,7 @@ class checkMemberStatus_Submit(webapp2.RequestHandler):
 									year = 'None'
 								tableString = tableString + '<tr><td>' + clubName + '</td><td>' + str(year) + '</td><td>' + addedBy  + '</td><td>' + str(date) + '</td></tr>'
 						
-					if tableString == '' and users.is_current_user_admin():
+					if tableString == '' or users.is_current_user_admin():
 						self.redirect('/')
 					
 					
