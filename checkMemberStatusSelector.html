@@ -46,6 +46,7 @@ Monash C&S Membership Database
 		</p>
 		{% endif %}
       </div>
+	  Only one field is necessary.
 	  <form action="/checkMemberStatus_Submit?%s" method="post">
 	  
 	
@@ -54,6 +55,10 @@ Monash C&S Membership Database
           Student ID
         </label>
         <input name="studentid" type="" id="studentid">
+		<label for="studentid">
+          Authcate
+        </label>
+        <input name="authcate" type="" id="authcate">
       </div>
 	  <div><input type="submit" value="Submit"></div>
 	  </form>

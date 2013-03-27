@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+{% autoescape off%}
+
 <html lang="en">
   
   <head>
@@ -26,28 +28,35 @@
         <div class="container">
           <a class="brand" href="/">
 Monash C&S Membership Database
-          </a>
+           </a>
           <ul class="nav">
           </ul>
         </div>
       </div>
     </div>
     <div class="container">
-      <div>
-        <h1>
-          Events
-        </h1>
+				{% if error %}
         <p>
-      {% if events %}
-        <p>
-			{% autoescape off%}a
-			{{ events }}
-			{% endautoescape %}
-
+			<font color="red">
+				{{ error }}
+			</font>
 		</p>
-      {% endif %}
-        </p>
+		{% endif %}
+	  <form action="/changeStudentID_Submit" method="post">
+	  <div class="control-group">
+        <label for="Old Student ID">
+          Old Student ID
+        </label>
+        <input name="old_student_id" type="" id="old_student_id" value="">
       </div>
+	  	  <div class="control-group">
+        <label for="year">
+          New Student ID
+        </label>
+        <input name="new_student_id" type="" id="new_student_id" value="">
+      </div>
+	  <div><input type="submit" value="Submit"></div>
+	  </form>
     </div>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js">
     </script>
@@ -56,3 +65,4 @@ Monash C&S Membership Database
   </body>
 
 </html>
+{% endautoescape %}

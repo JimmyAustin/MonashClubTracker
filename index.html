@@ -51,7 +51,7 @@ Monash C&S Membership Database
           <br>
 		{% if addNewPerson %}
           <a class="title  imgScanned click" href="/register">
-            Add new person
+            <font size='5'>Register for the C&S Membership database</font>
           </a> - Register a new person in the system.
           <br>
 		{% endif %}
@@ -116,6 +116,12 @@ Monash C&S Membership Database
           </a> - View everyone in the club.
 		  <br>
 		{% endif %}
+		{% if viewMemberCount %}
+          <a class="title  imgScanned click" href="/viewMembershipTotals">
+            View Club Membership Count(s)
+          </a> - View the details of how many members each club had in each year.
+		  <br>
+		{% endif %}
 		{% if viewClubEmails %}
           <a class="title  imgScanned click" href="/selectClubEmails">
             Get Club Emails
@@ -158,6 +164,12 @@ Monash C&S Membership Database
           </a> - Add a MSA card to a specific person.
           <br>
 		{% endif %}
+		{% if addMSACard %}
+		  <a class="title  imgScanned click" href="/changeStudentID">
+            Change Student ID
+          </a> - Changes the student ID of a specific person.
+          <br>
+		{% endif %}
 		{% if deletePersonFromSystem %}
 		  <a class="title  imgScanned click" href="/deletePerson">
             Delete Person
@@ -168,6 +180,12 @@ Monash C&S Membership Database
           <a class="title  imgScanned click" href="/addClub">
             Add Club
           </a> - Create a new club.
+          <br>
+		{% endif %}
+		{% if deleteClub %}
+          <a class="title  imgScanned click" href="/deleteClub">
+            Delete Club
+          </a> - Permenantly deletes the club. No coming back. Do not mess with this.
           <br>
 		{% endif %}
         </p>

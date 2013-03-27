@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+{% autoescape off%}
+
 <html lang="en">
   
   <head>
@@ -15,6 +17,12 @@
       to the bottom of the topbar */ }
     </style>
     <link href="assets/css/bootstrap-responsive.css" rel="stylesheet">
+    <!-- Le HTML5 shim, for IE6-8 support of HTML5 elements -->
+    <!--[if lt IE 9]>
+      <script src="http://html5shim.googlecode.com/svn/trunk/html5.js">
+      </script>
+    <![endif]-->
+    <!-- Le fav and touch icons -->
 
     <style>
     </style>
@@ -26,7 +34,7 @@
         <div class="container">
           <a class="brand" href="/">
 Monash C&S Membership Database
-          </a>
+           </a>
           <ul class="nav">
           </ul>
         </div>
@@ -35,19 +43,24 @@ Monash C&S Membership Database
     <div class="container">
       <div>
         <h1>
-          Events
+          Select Event
         </h1>
-        <p>
-      {% if events %}
-        <p>
-			{% autoescape off%}a
-			{{ events }}
-			{% endautoescape %}
-
-		</p>
-      {% endif %}
-        </p>
       </div>
+	  <form action="/deleteClub_Submit" method="post">
+      <div class="control-group">
+        <label for="selectinput1">
+          Select Club To Delete
+        </label>
+		This is irreversible. Do not play with this.
+        <select name="clubinput" id="clubinput">
+			{{ clubs }}
+        </select>
+      </div>
+	  <div class="control-group">
+
+      </div>
+	  <div><input type="submit" value="Submit"></div>
+	  </form>
     </div>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js">
     </script>
@@ -56,3 +69,4 @@ Monash C&S Membership Database
   </body>
 
 </html>
+{% endautoescape %}

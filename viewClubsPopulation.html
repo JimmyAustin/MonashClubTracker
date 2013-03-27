@@ -26,7 +26,7 @@
         <div class="container">
           <a class="brand" href="/">
 Monash C&S Membership Database
-          </a>
+           </a>
           <ul class="nav">
           </ul>
         </div>
@@ -35,17 +35,23 @@ Monash C&S Membership Database
     <div class="container">
       <div>
         <h1>
-          Events
+          Clubs
         </h1>
         <p>
-      {% if events %}
         <p>
-			{% autoescape off%}a
-			{{ events }}
-			{% endautoescape %}
-
+		<table border="1">
+		<tr>
+		<th>Club</th>
+		<th>Year</th>
+		<th>Membership Count</th>
+		<th>MSA Membership Count</th>
+		</tr>
+		{% autoescape off%}
+			{{ masterString }}
+		{% endautoescape %}
+		</table>
+		
 		</p>
-      {% endif %}
         </p>
       </div>
     </div>
